@@ -291,6 +291,52 @@ void __init_hidden_weights(neural_layer_t **layers, uint32_t num_layers)
     }
 }
 
+bool train(nn_data_t *training_data, int epochs, uint32_t num_test_per_batch, double eta, nn_data_t *test_data)
+{
+    mm_batch_t *batch = NULL;
+    uint32_t i = 0;
+    if (!trainging_data || !test_data) {
+        log_error(strerror(EINVAL));
+        return false;
+    }
+    for (i = 0; i < epochs; i++) {
+        batch = __create_mini_batches(training_data, num_test_per_batch);
+        if (!batch) {
+            log_error("Failed to create mini batches");
+            return false;
+        }
+        if (!update_mini_batch(batch, eta)) {
+            log_error("Failed to update the mini batch");
+            return false;
+        }
+        if (!evaluate(test_data)) {
+            log_error("Failed to evalute test data");
+            return false;
+        }
+    }
+}
+
+nn_batch_t __create_mini_batch(nn_data_t *training_data, uint32_t num_test_per_batch)
+{
+    uint32_t i = 0;
+    nn_batch_t *training_batch = NULL;
+    
+    if (!batches) {
+        log_error(strerror(ENOMEM));
+        return NULL;
+    }
+    training_batch = create_data_batch(training_data->num_data, num_test_per_batch);
+    if (!training_batch) {
+        log_err(strerror("Failed to create batch"));
+        return NULL;
+    }
+    if (!distribute_data_into_batches(training_data, training_batch)) {
+        log_error("Failed to distribute training data into batches");
+        return NULL;
+    }
+    return training_batch;
+}
+
 //! Internal function to initialize weigths of the output layers
 /*
  * @params neural_layer_t **    The layers in the neural network
