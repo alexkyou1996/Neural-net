@@ -12,6 +12,8 @@
 #define INPUT_LAYER_INDEX 0
 #define HIDDEN_LAYER_INDEX 1
 
+//! Function to create layers within neural net with zeroed bias and weights
+neural_layer_t **__create_layers(uint32_t *, uint32_t);
 //! Internal function to initialize input layer within the neural network
 bool __initialize_input_layer(neural_layer_t **, uint32_t *);
 //! Internal function to initialize hidden layer within the neural network
@@ -55,7 +57,6 @@ typedef struct network_struct {
 network_t create_network(uint32_t *num_neurons_per_layer, uint32_t num_layers)
 {
     neural_layer_t **layers = NULL;
-    neural_layer_t *layer = NULL;
     network_t *network = NULL;
     uint32_t i = 0;
     if (!num_neurons_per_layer || !num_layers || num_layer < MIN_NEURAL_LAYER) {
@@ -68,6 +69,59 @@ network_t create_network(uint32_t *num_neurons_per_layer, uint32_t num_layers)
         log_error(strerror(ENOMEM));
         return NULL;
     }
+    layers = __create_layers(num_neurons_per_layer, num_layers);
+    if (!layers) {
+        log_error("Failed to create layers");
+        free(network);
+        return NULL;
+    }
+    network->num_layers = num_layers;
+    network->layers = layers;
+    __initialize_bias_and_weights(network);
+    return network;
+}
+
+//! Function copy another layer's structure without its values
+/*
+ * @params  neural_layer_t **   The source layers to copy
+ * @params  uint32_t            The size of the layer
+ *
+ * @returns neural_layer_t **   The copied layers
+ */
+neural_layer_t **create_delta_layer(neural_layer_t **layers_to_copy, uint32_t num_layers)
+{
+    uint32_t *num_neurons_per_layer = 0;
+    uint32_t i = 0;
+    neural_layer_t **layers = NULL;
+
+    num_neurons_per_layer = calloc(sizeof(uint32_t) * num_layers, 1);
+    if (!num_neurons_per_layer) {
+        log_error(strerror(ENOMEM));
+        return NULL;
+    }
+    for (i = 0; i < num_layers; i++) {
+        num_neurons_per_layer[i] = layers_to_copy[i]->num_neurons;
+    }
+    layers = __create_layers(num_neurons_per_layer, num_layers);
+    if (!layers) {
+        log_error("Failed to create layers");
+        free(num_neurons_per_layer);
+        return NULL;
+    }
+    free(num_neurons_per_layer);
+    return layers;
+}
+
+//! Function to create layers within neural net with zeroed bias and weights
+/*
+ * @params  uint32_t *          Number of neurons to allocate at each layer
+ * @params  uint32_t            Number of layers to allocate
+ *
+ * @returns neural_layer_t **   The neural layer object
+ */
+neural_layer_t **__create_layers(uint32_t *num_neurons_per_layer, uint32_t num_layers)
+{
+    neural_layer_t **layers = NULL;
     layers = calloc(sizeof(neural_layer_t *), num_layers);
     if (!layers) {
         log_error(strerror(ENOMEM));
@@ -85,10 +139,7 @@ network_t create_network(uint32_t *num_neurons_per_layer, uint32_t num_layers)
         log_error(strerror("Failed to initialize output layer"));
         return false;
     }
-    network->num_layers = num_layers;
-    network->layers = layers;
-    __initialize_bias_and_weights(network);
-    return network;
+    return layers;
 }
 
 //! Internal function to initialize input layer within the neural network
@@ -291,21 +342,22 @@ void __init_hidden_weights(neural_layer_t **layers, uint32_t num_layers)
     }
 }
 
-bool train(nn_data_t *training_data, int epochs, uint32_t num_test_per_batch, double eta, nn_data_t *test_data)
+bool train(network_t *network, nn_data_batch *training_data, int epochs, uint32_t num_test_per_batch, double eta, nn_data_t *test_data)
 {
-    mm_batch_t *batch = NULL;
+    nn_data_batch_t *batch = NULL;
+    nn_data_suite *suite = NULL;
     uint32_t i = 0;
-    if (!trainging_data || !test_data) {
+    if (!network|| !trainging_data || !test_data) {
         log_error(strerror(EINVAL));
         return false;
     }
     for (i = 0; i < epochs; i++) {
-        batch = __create_mini_batches(training_data, num_test_per_batch);
-        if (!batch) {
-            log_error("Failed to create mini batches");
+        suite = divide_batch_into_suite(training_data, num_test_per_batch);
+        if (!suite) {
+            log_error("Failed to create divide the training batch");
             return false;
         }
-        if (!update_mini_batch(batch, eta)) {
+        if (!update_suite(network, suite, eta)) {
             log_error("Failed to update the mini batch");
             return false;
         }
@@ -314,27 +366,24 @@ bool train(nn_data_t *training_data, int epochs, uint32_t num_test_per_batch, do
             return false;
         }
     }
+    return true;
 }
 
-nn_batch_t __create_mini_batch(nn_data_t *training_data, uint32_t num_test_per_batch)
+bool update_suite(network_t *network, nn_suite_t *training_suite, double learning_rate)
 {
+    uint32_t serialized_expected_output_size = 0;
+    double *serizlied_expected_output = NULL;
+    uint32_t serialized_input_size = 0;
+    double *serialized_input = NULL;
     uint32_t i = 0;
-    nn_batch_t *training_batch = NULL;
-    
-    if (!batches) {
-        log_error(strerror(ENOMEM));
+    neural_layer_t **delta_layers = NULL;
+    delta_layers = create_delta_layer(network->layers, network->num_layers);
+    if (!layers) {
+        log_error("Failed to create delta layers");
         return NULL;
     }
-    training_batch = create_data_batch(training_data->num_data, num_test_per_batch);
-    if (!training_batch) {
-        log_err(strerror("Failed to create batch"));
-        return NULL;
+    for (i = 0; i < training_suite->num_batch; i++) {
     }
-    if (!distribute_data_into_batches(training_data, training_batch)) {
-        log_error("Failed to distribute training data into batches");
-        return NULL;
-    }
-    return training_batch;
 }
 
 //! Internal function to initialize weigths of the output layers

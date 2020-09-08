@@ -7,6 +7,15 @@
  */
 network_t create_network(uint32_t *, uint32_t);
 
+//! Function copy another layer's structure without its values
+/*
+ * @params  neural_layer_t **   The source layers to copy
+ * @params  uint32_t            The size of the layer
+ *
+ * @returns neural_layer_t **   The copied layers
+ */
+neural_layer_t **create_delta_layer(neural_layer_t **, uint32_t);
+
 //! The sigmoid activation function for neuron firing
 /*
  * @param double **     2D Matrix of neurons
