@@ -383,7 +383,27 @@ bool update_suite(network_t *network, nn_suite_t *training_suite, double learnin
         return NULL;
     }
     for (i = 0; i < training_suite->num_batch; i++) {
+        __backprop(network, training_suite);
     }
+}
+
+void *__backprop(network_t *network, nn_data_suite_t *training_suite)
+{
+    neural_layer_t *delta_layers = NULL;
+    delta_layers = create_delta_layer(network->layers, network->num_layers);
+    if (!delta_layers) {
+        log_error("Failed to create delta layer");
+        return NULL;
+    }
+
+    // actviation = input data
+
+    // activations = bias layer
+
+    // prepend input data(first layer) to activations (bias layer). Before this activations only had bias for 2nd layer and on
+
+    // zs = clone of bias structure
+
 }
 
 //! Internal function to initialize weigths of the output layers

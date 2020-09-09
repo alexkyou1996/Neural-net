@@ -4,6 +4,8 @@ typedef struct input_neuron_struct {
     uint32_t num_weights;
     //! dynamically allocated array of weights
     double *weights;
+    //! the input value
+    double input_value;
 } input_neuron_t;
 
 //! Struct to describe hidden neurons
