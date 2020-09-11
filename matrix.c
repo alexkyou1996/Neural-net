@@ -1,4 +1,11 @@
+#include <stdint.h>
+#include <stdbool.h>
+#include <errno.h>
+#include <string.h>
+#include <stdlib.h>
+
 #include "matrix.h"
+#include "logging.h"
 //! struct to describe matrix
 typedef struct matrix_struct {
     // number of rows of the matrix
@@ -24,24 +31,24 @@ matrix_t *mtx_create_matrix(uint32_t rows, uint32_t columns)
     matrix_t *matrix = NULL;
     uint32_t i = 0;
     if (!rows || !columns) {
-        log_error(strerror(EINVAL));
+        LOG_ERROR(strerror(EINVAL));
         return NULL;
     }
     matrix = calloc(sizeof(matrix_t), 1);
     if (!matrix) {
-        log_error(strerror(ENOMEM));
+        LOG_ERROR(strerror(ENOMEM));
         return NULL;
     }
     matrix->cells = calloc(sizeof(double *), rows);
     if (!matrix->cells) {
-        log_error(strerror(ENOMEM));
+        LOG_ERROR(strerror(ENOMEM));
         mtx_destroy_matrix(matrix);
         return NULL;
     }
-    for (i = 0; i < rows, i++) {
+    for (i = 0; i < rows; i++) {
         matrix->cells[i] = calloc(sizeof(double), columns);
         if (!matrix->cells[i]) {
-            log_error(strerror(ENOMEM));
+            LOG_ERROR(strerror(ENOMEM));
             mtx_destroy_matrix(matrix);
             return NULL;
         }
@@ -78,23 +85,23 @@ matrix_t *mtx_dot(matrix_t *matrix_left, matrix_t *matrix_right)
     uint32_t j = 0;
     uint32_t k = 0;
     if (!matrix_left || !matrix_right) {
-        log_error(strerror(EINVAL));
+        LOG_ERROR(strerror(EINVAL));
         return NULL;
     }
     if (matrix_left->num_columns != matrix_right->num_rows) {
-        log_error(strerror("Illegal matrix operation"));
+        LOG_ERROR("Illegal matrix operation");
         return NULL;
     }
     product = mtx_create_matrix(matrix_left->num_rows, matrix_right->num_columns);
     if (!product) {
-        log_error("Failed to create matrix");
+        LOG_ERROR("Failed to create matrix");
         return NULL;
     }
     for (i = 0; i < matrix_left->num_rows; i++) {
         for (j = 0; j < matrix_left->num_columns; j++) {
             for (k = 0; k < matrix_right->num_columns; k++) {
-                product_value->cells[i][k] += 
-                    left_matrix->cells[i][j] * right_matrix[j][k];
+                product->cells[i][k] += 
+                    matrix_left->cells[i][j] * matrix_right->cells[j][k];
             }
         }
     }
@@ -110,26 +117,26 @@ matrix_t *mtx_dot(matrix_t *matrix_left, matrix_t *matrix_right)
  */
 matrix_t *mtx_add(matrix_t *matrix_left, matrix_t *matrix_right)
 {
-    matrix *sum = NULL;
+    matrix_t *sum = NULL;
     uint32_t i = 0;
     uint32_t j = 0;
     if (!matrix_left || !matrix_right) {
-        log_error(strerror(EINVAL));
+        LOG_ERROR(strerror(EINVAL));
         return NULL;
     }
     if (matrix_left->num_rows != matrix_right->num_rows ||
             matrix_left->num_columns != matrix_right->num_columns) {
-        log_error(strerror("Illegal matrix operation"));
+        LOG_ERROR("Illegal matrix operation");
         return NULL;
     }
     sum = mtx_create_matrix(matrix_left->num_rows, matrix_left->num_columns);
     if (!sum) {
-        log_error("Failed to create matrix");
+        LOG_ERROR("Failed to create matrix");
         return NULL;
     }
     for (i = 0; i < matrix_left->num_rows; i++) {
         for (j = 0; j < matrix_left->num_columns; j++) {
-            sum->cells[i][j] = left_matrix[i][j] + right_matrix[i][j];
+            sum->cells[i][j] = matrix_left->cells[i][j] + matrix_right->cells[i][j];
         }
     }
     return sum;
@@ -145,26 +152,26 @@ matrix_t *mtx_add(matrix_t *matrix_left, matrix_t *matrix_right)
  */
 matrix_t *mtx_subtract(matrix_t *matrix_left, matrix_t *matrix_right)
 {
-    matrix *sum = NULL;
+    matrix_t *sum = NULL;
     uint32_t i = 0;
     uint32_t j = 0;
     if (!matrix_left || !matrix_right) {
-        log_error(strerror(EINVAL));
+        LOG_ERROR(strerror(EINVAL));
         return NULL;
     }
     if (matrix_left->num_rows != matrix_right->num_rows ||
             matrix_left->num_columns != matrix_right->num_columns) {
-        log_error(strerror("Illegal matrix operation"));
+        LOG_ERROR("Illegal matrix operation");
         return NULL;
     }
     sum = mtx_create_matrix(matrix_left->num_rows, matrix_left->num_columns);
     if (!sum) {
-        log_error("Failed to create matrix");
+        LOG_ERROR("Failed to create matrix");
         return NULL;
     }
     for (i = 0; i < matrix_left->num_rows; i++) {
         for (j = 0; j < matrix_left->num_columns; j++) {
-            sum->cells[i][j] = left_matrix[i][j] - right_matrix[i][j];
+            sum->cells[i][j] = matrix_left->cells[i][j] - matrix_right->cells[i][j];
         }
     }
     return sum;
@@ -178,16 +185,16 @@ matrix_t *mtx_subtract(matrix_t *matrix_left, matrix_t *matrix_right)
  */
 matrix_t *mtx_transpose(matrix_t *matrix)
 {
-    matrix *transposed_matrix = NULL;
+    matrix_t *transposed_matrix = NULL;
     uint32_t i = 0;
     uint32_t j = 0;
     if (!matrix) {
-        log_error(strerror(EINVAL));
+        LOG_ERROR(strerror(EINVAL));
         return NULL;
     }
     transposed_matrix = mtx_create_matrix(matrix->num_columns, matrix->num_rows);
     if (!transposed_matrix) { 
-        log_error("Failed to create a matrix");
+        LOG_ERROR("Failed to create a matrix");
         return NULL;
     }
     for (i = 0; i < matrix->num_rows; i++) {
@@ -210,11 +217,11 @@ matrix_t *mtx_transpose(matrix_t *matrix)
 bool mtx_at(matrix_t *matrix, uint32_t row, uint32_t column, double *value)
 {
     if (!matrix || !value) {
-        log_error(strerror(EINVAL));
+        LOG_ERROR(strerror(EINVAL));
         return false;
     }
     if (row >= matrix->num_rows || column >= matrix->num_columns) {
-        log_error("Index out of bounds");
+        LOG_ERROR("Index out of bounds");
         return false;
     }
     *value = matrix->cells[row][column];
@@ -230,14 +237,14 @@ bool mtx_at(matrix_t *matrix, uint32_t row, uint32_t column, double *value)
  *
  * @returns bool                Whether success
  */
-bool mtx_set_cell(matrix_t matrix, uint32_t row, uint32_t column, double value)
+bool mtx_set_cell(matrix_t *matrix, uint32_t row, uint32_t column, double value)
 {
     if (!matrix) {
-        log_error(strerror(EINVAL));
+        LOG_ERROR(strerror(EINVAL));
         return false;
     }
     if (row >= matrix->num_rows || column >= matrix->num_columns) {
-        log_error("Index out of bounds");
+        LOG_ERROR("Index out of bounds");
         return false;
     }
     matrix->cells[row][column] = value;

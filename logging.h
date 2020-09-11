@@ -1,4 +1,4 @@
-#define LOG_ERROR(format, ...) log_error(__FILE__, __func__, __LINE__, format, __VA_ARGS__) 
+#define LOG_ERROR(format, ...) log_error(__FILE__, __func__, __LINE__, format, ## __VA_ARGS__) 
 
 //! Function to initiate logger
 void init_log();

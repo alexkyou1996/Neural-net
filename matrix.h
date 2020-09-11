@@ -52,7 +52,7 @@ matrix_t *mtx_subtract(matrix_t *, matrix_t *);
  *
  * @returns matrix_t *          The tranposed matrix
  */
-matrix_t *mtx_transpose(matrix_t *, matrix_t *);
+matrix_t *mtx_transpose(matrix_t *);
 
 //! Function to retrieve a value at specific index of a matrix
 /*
@@ -63,7 +63,7 @@ matrix_t *mtx_transpose(matrix_t *, matrix_t *);
  *
  * @returns bool                Whether success
  */
-double mtx_at(matrix_t *, uint32_t, uint32_t, double *);
+bool mtx_at(matrix_t *, uint32_t, uint32_t, double *);
 
 //! Function to set a value at specific index of a matrix
 /*
