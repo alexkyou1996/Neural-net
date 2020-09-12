@@ -1,3 +1,6 @@
+#include <stdbool.h>
+#include <stdint.h>
+
 //! Forward declartion for the matrix object
 typedef struct matrix_struct matrix_t;
 
@@ -26,7 +29,7 @@ void mtx_destroy_matrix(void *);
  *
  * @returns matrix_t *          The product
  */
-matrix_t *mtx_dot_product(matrix_t *, matrix_t *);
+matrix_t *mtx_dot(matrix_t *, matrix_t *);
 
 //! Function to perform matrix addition
 /*
@@ -75,3 +78,43 @@ bool mtx_at(matrix_t *, uint32_t, uint32_t, double *);
  * @returns bool                Whether success
  */
 bool mtx_set_cell(matrix_t *, uint32_t, uint32_t, double);
+
+//! Function to retrieve the number of rows in a matrix
+/*
+ * @params  matrix_t *          The matrix
+ *
+ * @returns uint32_t            The number of rows
+ */
+uint32_t mtx_get_num_rows(matrix_t *);
+
+//! Function to set a sepcific row with array of values
+/*
+ * @params  matrix_t *          The matrix
+ * @params  uint32_t            Row index
+ * @params  double *            Array of values
+ * @params  uint32_t            size of array
+ */
+bool mtx_set_row(matrix_t *, uint32_t, double *, uint32_t);
+
+//! Function to set a sepcific columnwith array of values
+/*
+ * @params  matrix_t *          The matrix
+ * @params  uint32_t            column index
+ * @params  double *            Array of values
+ * @params  uint32_t            size of array
+ */
+bool mtx_set_column(matrix_t *, uint32_t, double *, uint32_t);
+
+//! Function to retrieve the number of columns in a matrix
+/*
+ * @params  matrix_t *          The matrix
+ *
+ * @returns uint32_t            The number of columns
+ */
+uint32_t mtx_get_num_columns(matrix_t *);
+
+//! DEBUG function to print a matrix in human readable format
+/*
+ * @params  matrix_t *          The matrix to print
+ */
+void mtx_print(matrix_t *);

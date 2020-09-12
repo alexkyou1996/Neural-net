@@ -3,9 +3,12 @@
 #include <errno.h>
 #include <string.h>
 #include <stdlib.h>
+#include <stdio.h>
 
 #include "matrix.h"
 #include "logging.h"
+
+#define VERY_LONG_BUFFER_SIZE 4096
 //! struct to describe matrix
 typedef struct matrix_struct {
     // number of rows of the matrix
@@ -53,6 +56,8 @@ matrix_t *mtx_create_matrix(uint32_t rows, uint32_t columns)
             return NULL;
         }
     }
+    matrix->num_rows = rows;
+    matrix->num_columns = columns;
     return matrix;
 }
 
@@ -64,6 +69,9 @@ void mtx_destroy_matrix(void *matrix)
 {
     uint32_t i = 0;
     matrix_t *m = (matrix_t *)matrix;
+    if (!m) {
+        return;
+    }
     for (i = 0; i < m->num_rows; i++) {
         free(m->cells[i]);
     }
@@ -249,4 +257,114 @@ bool mtx_set_cell(matrix_t *matrix, uint32_t row, uint32_t column, double value)
     }
     matrix->cells[row][column] = value;
     return true;
+}
+
+//! Function to set a sepcific row with array of values
+/*
+ * @params  matrix_t *          The matrix
+ * @params  uint32_t            Row index
+ * @params  double *            Array of values
+ * @params  uint32_t            size of array
+ */
+bool mtx_set_row(matrix_t *matrix, uint32_t row_index, double *values, uint32_t num_values)
+{
+    uint32_t i = 0;
+    if (!matrix) {
+        LOG_ERROR(strerror(EINVAL));
+        return false;
+    }
+    if (row_index >= matrix->num_rows) {
+        LOG_ERROR("Index out of bounds");
+        return false;
+    }
+    if (matrix->num_columns != num_values) {
+        LOG_ERROR("The matrix column count [%u] does not match the number of values being set [%u]", matrix->num_columns, num_values);
+        return false;
+    }
+    for (i = 0; i < num_values; i++) {
+        matrix->cells[row_index][i] = values[i];
+    }
+    return true;
+}
+
+//! Function to set a sepcific columnwith array of values
+/*
+ * @params  matrix_t *          The matrix
+ * @params  uint32_t            column index
+ * @params  double *            Array of values
+ * @params  uint32_t            size of array
+ */
+bool mtx_set_column(matrix_t *matrix, uint32_t column_index, double *values, uint32_t num_values)
+{
+    uint32_t i = 0;
+    if (!matrix) {
+        LOG_ERROR(strerror(EINVAL));
+        return false;
+    }
+    if (column_index >= matrix->num_columns) {
+        LOG_ERROR("Index out of bounds");
+        return false;
+    }
+    if (matrix->num_rows != num_values) {
+        LOG_ERROR("The matrix row count [%u] does not match the number of values being set [%u]", matrix->num_rows, num_values);
+        return false;
+    }
+    for (i = 0; i < num_values; i++) {
+        matrix->cells[i][column_index] = values[i];
+    }
+    return true;
+
+}
+
+//! Function to retrieve the number of rows in a matrix
+/*
+ * @params  matrix_t *          The matrix
+ *
+ * @returns uint32_t            The number of rows
+ */
+uint32_t mtx_get_num_rows(matrix_t *matrix)
+{
+    if (!matrix) {
+        LOG_ERROR(strerror(EINVAL));
+        return 0;
+    }
+    return matrix->num_rows;
+}
+
+//! Function to retrieve the number of columns in a matrix
+/*
+ * @params  matrix_t *          The matrix
+ *
+ * @returns uint32_t            The number of columns
+ */
+uint32_t mtx_get_num_columns(matrix_t *matrix)
+{
+    if (!matrix) {
+        LOG_ERROR(strerror(EINVAL));
+        return 0;
+    }
+    return matrix->num_columns;
+
+}
+
+//! DEBUG function to print a matrix in human readable format
+/*
+ * @params  matrix_t *          The matrix to print
+ *
+ * TODO: make macro to only include this function on debug build
+ */
+void mtx_print(matrix_t *matrix)
+{
+    uint32_t i = 0;
+    uint32_t j = 0;
+    if (!matrix) {
+        LOG_ERROR(strerror(EINVAL));
+    }
+    
+    for (i = 0; i < matrix->num_rows; i++) {
+        for (j = 0; j < matrix->num_columns; j++) {
+            printf("%lf ",matrix->cells[i][j]);
+        }
+        printf("\n");
+    }
 }
