@@ -262,6 +262,7 @@ bool test_7(void *data)
         goto fail;
     }
     mtx_destroy_matrix(matrix_left);
+    mtx_destroy_matrix(matrix_right);
     return true;
 
 fail:
