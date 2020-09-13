@@ -41,7 +41,7 @@ void set_verbose()
 int log_error(const char *file, const char * function, int line, char *format, ...)
 {
     char buffer[BUFFER_SIZE] = {0};
-    uint32_t log_length = 0;
+    size_t log_length = 0;
     va_list args ={0};
     int ret = 0;
 
@@ -72,7 +72,7 @@ int log_error(const char *file, const char * function, int line, char *format, .
 int log_info(const char *file, const char * function, int line, char *format, ...)
 {
     char buffer[BUFFER_SIZE] = {0};
-    uint32_t log_length = 0;
+    size_t log_length = 0;
     va_list args ={0};
     int ret = 0;
 

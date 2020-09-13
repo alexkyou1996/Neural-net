@@ -19,6 +19,7 @@ typedef struct test_structure {
 
 bool test_1(void *data)
 {
+    data = data;
     matrix_t *matrix = NULL;
     matrix = mtx_create_matrix(0, 0);
     if (matrix) {
@@ -29,6 +30,7 @@ bool test_1(void *data)
 
 bool test_2(void *data)
 {
+    data = data;
     matrix_t *matrix = NULL;
     matrix = mtx_create_matrix(1, 1);
     double value = 0;
@@ -68,6 +70,7 @@ bool test_2(void *data)
 
 bool test_3(void *data)
 {
+    data = data;
     double row1[] = {1, 2, 3, 4};
     double row2[] = {1.1, 2.2, 3.3, 4.4};
     double value = 0;
@@ -98,6 +101,7 @@ bool test_3(void *data)
 
 bool test_4(void *data)
 {
+    data = data;
     double col1[] = {1, 2, 3};
     double col2[] = {4, 5, 6};
     double value = 0;
@@ -127,6 +131,7 @@ bool test_4(void *data)
 // dot product 1
 bool test_5(void *data)
 {
+    data = data;
     double m1_row1[] = {13,17};
     double m1_row2[] = {1, 5};
     double m2_row1[] = {5.5, 2.6, 1.9};
@@ -182,6 +187,7 @@ fail:
 // dot product 2
 bool test_6(void *data)
 {
+    data = data;
     double m1_row1[] = {4, 5, 6};
     double m2_col1[] = {1, 2, 3};
     matrix_t *matrix_left = NULL;
@@ -230,12 +236,12 @@ fail:
 // illegal dot product
 bool test_7(void *data)
 {
+    data = data;
     double m1_row1[] = {4, 5, 6};
     double m2_row1[] = {1, 2, 3};
     matrix_t *matrix_left = NULL;
     matrix_t *matrix_right = NULL;
     matrix_t *result = NULL;
-    double value = 0;
 
     matrix_left = mtx_create_matrix(1, 3);
     if (!matrix_left) {
@@ -275,6 +281,7 @@ fail:
 // addition
 bool test_8(void *data)
 {
+    data = data;
     double m1_row1[] = {0, 1, 2};
     double m1_row2[] = {9, 8, 7};
     double m2_row1[] = {6, 5, 4};
@@ -330,6 +337,7 @@ fail:
 // subtraction
 bool test_9(void *data)
 {
+    data = data;
     double m1_row1[] = {0, 1, 2};
     double m1_row2[] = {9, 8, 7};
     double m2_row1[] = {6, 5, 4};
@@ -385,6 +393,7 @@ fail:
 // transpose
 bool test_10(void *data)
 {
+    data = data;
     double m1_row1[] = {1, 2, 3};
     double m1_row2[] = {4, 5, 6};
     matrix_t *matrix = NULL;
@@ -436,7 +445,7 @@ test_t tests[] = {
     {"test_10", test_10},
 };
 
-int main(int argc, char *argv[])
+int main()
 {
     uint32_t failed_test_count = 0;
     uint32_t num_tests = 0;
