@@ -36,6 +36,9 @@ void __init_hidden_weights(neural_layer_t **, uint32_t);
 void __init_output_weights(neural_layer_t **, uint32_t);
 //! Internal function to generate random double value
 double __gen_random_double(double, double);
+neural_layer_t *__get_input_layer(network_t *);
+neural_layer_t *__get_hidden_layer(network_t *, uint32_t);
+neural_layer_t *__get_ouput_layer(network_t *);
 
 
 //! Structure to describe the neural network object
@@ -79,6 +82,28 @@ network_t create_network(uint32_t *num_neurons_per_layer, uint32_t num_layers)
     network->layers = layers;
     __initialize_bias_and_weights(network);
     return network;
+}
+
+//! Function to feed input data to the neural network
+/* 
+ * @params  network_t *         The neural network
+ * @params  nn_data_t *         The data object to feed in
+ *
+ * @returns bool                Whether success
+ */
+bool feed_input_to_network(network_t *network, nn_data_t *input_data)
+{
+    neural_layer *input_layer = NULL;
+    double *serialized_inputs = NULL;
+    uint32_t i = 0;
+    if (!network || !input) {
+        log_error(strerror(EINVAL));
+        return false;
+    }
+    input_layer = __get_input_layer(network);
+    serialized_inputs = nn_data_serialize_input(input_data);
+    set_inputs_in_input_layer(input_layer, serialized_inputs);
+    return true;
 }
 
 //! Function copy another layer's structure without its values
@@ -342,6 +367,60 @@ void __init_hidden_weights(neural_layer_t **layers, uint32_t num_layers)
     }
 }
 
+//! Internal function to retrieve the input layer
+/*
+ * @params  network_t *         The neural network
+ *
+ * @returns neural_layer_t *    The input layer
+ */
+neural_layer_t *__get_input_layer(network_t *network)
+{
+    neural_layer_t *layer = NULL;
+    if (!network || !network->num_layers || !network->layers) {
+        log_error(strerror(EINVAL));
+        return NULL;
+    }
+    layer = network->layers[0];
+    return (layer->type == LAYER_TYPE_INPUT) ? layer : NULL;
+}
+//! Internal function to retrieve a specific hidden layer via index
+/*
+ * @params  network_t *         The neural network
+ * @params  uint32_t            The index of the hidden layer to retreive
+ *
+ * @returns neural_layer_t *    The hidden layer
+ */
+neural_layer_t *__get_hidden_layer(network_t *network, uint32_t index)
+{
+    neural_layer_t *layer = NULL;
+    if (!network || !network->num_layers || network->layers) {
+        log_error(strerror(EINVAL));
+        return NULL;
+    }
+    if ((network->num_layers - 2) <= index) {
+        log_error(strerror(EINVAL));
+        return NULL;
+    }
+    layer = network->layers[index + 1];
+    return (layer->type == LAYER_TYPE_HIDDEN) ? layer : NULL;
+}
+//! Internal function to retrieve the output layer
+/*
+ * @params  network_t *         The neural network
+ *
+ * @returns neural_layer_t *    The output layer
+ */
+neural_layer_t *__get_ouput_layer(network_t *network)
+{
+    neural_layer_t *layer = NULL;
+    if (!network || !network->num_layers || network->layers) {
+        log_error(strerror(EINVAL));
+        return NULL;
+    }
+    layer = network->layers[network->num_layers - 1];
+    return (layer->type == LAYER_TYPE_OUTPUT) ? layer : NULL;
+}
+
 bool train(network_t *network, nn_data_batch *training_data, int epochs, uint32_t num_test_per_batch, double eta, nn_data_t *test_data)
 {
     nn_data_batch_t *batch = NULL;
@@ -383,20 +462,27 @@ bool update_suite(network_t *network, nn_suite_t *training_suite, double learnin
         return NULL;
     }
     for (i = 0; i < training_suite->num_batch; i++) {
-        __backprop(network, training_suite);
+        __backprop(network, training_suite->batches[i]);
     }
 }
 
-void *__backprop(network_t *network, nn_data_suite_t *training_suite)
+void *__backprop_training_batch(network_t *network, nn_data_batch_t *training_batch)
 {
     neural_layer_t *delta_layers = NULL;
+    uint32_t i = 0;
     delta_layers = create_delta_layer(network->layers, network->num_layers);
     if (!delta_layers) {
         log_error("Failed to create delta layer");
         return NULL;
     }
 
+    for (i = 0; i < training_batch->num_data; i++) {
+
+    }
+
+    // b = 
     // actviation = input data
+    // activation = x[768][1]
 
     // activations = bias layer
 
@@ -404,6 +490,25 @@ void *__backprop(network_t *network, nn_data_suite_t *training_suite)
 
     // zs = clone of bias structure
 
+}
+
+bool __backprop_training_data(network_t *network, nn_data_t *training_data)
+{
+    matrix_t *result_dot = NULL;
+    matrix_t *result_sum = NULL;
+    matrix_t **results = NULL;
+    uint32_t i = 0;
+    for (i = 0; i < network->num_layers - 1; i++) {
+        // derive weight_matrix
+        result_dot = mtx_dot(weight_matrix, input_matrix);
+        if (!result_dot) {
+            return false;
+        }
+        result_sum = mtx_sum(result_dot, bias_matrix);
+        if (!result_sum) {
+            return false;
+        }
+    }
 }
 
 //! Internal function to initialize weigths of the output layers

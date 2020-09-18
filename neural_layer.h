@@ -30,6 +30,16 @@ typedef enum layer_type_enum {
  */
 neural_layer_t *create_input_layer(uint32_t);
 
+//! Function to set inputs to the input layer
+/*
+ * @params  neural_layer_t *    The input layer
+ * @params  double *            The inputs
+ * @params  uint32_t            The input size
+ *
+ * @returns bool                Whether success
+ */
+bool set_inputs_in_input_layer(neural_layer_t *, double *, uint32_t);
+
 //! Function to create hidden layer object
 /*
  * @params  uint32_t            Number of neurons to allocate for this layer

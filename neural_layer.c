@@ -46,6 +46,29 @@ neural_layer_t *create_input_layer(uint32_t num_neurons)
     return layer;
 }
 
+//! Function to set inputs to the input layer
+/*
+ * @params  neural_layer_t *    The input layer
+ * @params  double *            The inputs
+ * @params  uint32_t            The input size
+ *
+ * @returns bool                Whether success
+ */
+bool set_inputs_in_input_layer(neural_layer_t *layer, double *inputs, uint32_t input_size)
+{
+    uint32_t i = 0;
+    if (!layer || layer->type != LAYER_TYPE_INPUT ||
+            !inputs|| layer->num_neurons != input_size) {
+        log_error(strerror(EINVAL));
+        return false;
+    }
+    
+    for (i = 0; i < input_size; i++) {
+        layer->input_neurons[i]->input_value = inputs[i];
+    }
+    return true;
+}
+
 //! Function to create hidden layer object
 /*
  * @params  uint32_t            Number of neurons to allocate for this layer

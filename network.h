@@ -7,6 +7,15 @@
  */
 network_t create_network(uint32_t *, uint32_t);
 
+//! Function to feed input data to the neural network
+/* 
+ * @params  network_t *         The neural network
+ * @params  nn_data_t *         The data object to feed in
+ *
+ * @returns bool                Whether success
+ */
+bool feed_input_to_network(network_t *, nn_data_t *);
+
 //! Function copy another layer's structure without its values
 /*
  * @params  neural_layer_t **   The source layers to copy
