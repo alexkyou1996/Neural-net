@@ -1,6 +1,6 @@
 #include "nn_data.h"
 
-nn_data_batch_t *create_data_batch(uint32_t num_data, int data_type)
+nn_data_batch_t *nn_create_data_batch(uint32_t num_data, int data_type)
 {
     nn_data_batch_t *batch = NULL;
     if (!num_data) {
@@ -33,7 +33,7 @@ nn_data_batch_t *create_data_batch(uint32_t num_data, int data_type)
  *       is in use. Also, DO NOT modify the values of data referenced by the batches 
  *       inside the suite
  */
-nn_data_suite_t *divide_batch_into_suite(nn_data_batch_t *batch, uint32_t num_data_per_batch)
+nn_data_suite_t *nn_divide_batch_into_suite(nn_data_batch_t *batch, uint32_t num_data_per_batch)
 {
     nn_data_suite_t *suite = NULL;
     nn_data_batch_t *batch = NULL;
@@ -68,6 +68,33 @@ nn_data_suite_t *divide_batch_into_suite(nn_data_batch_t *batch, uint32_t num_da
         suite->batches[i].data = &(batch->data[i * num_data_per_batch]);
     }
     return suite;
+}
+
+//! Function to create a matrix representation of the data object
+/*
+ * @params  nn_data_t *         The data object
+ *
+ * @returns matrix_t *          The matrix
+ */
+matrix_t *nn_data_to_matrix(nn_data_t *data)
+{
+    uint32_t i = 0;
+    matrix_t *matrix = NULL;
+    if (!data) {
+        log_error(strerror(EINVAL));
+        return NULL;
+    }
+    matrix = mtx_create_matrix(IMAGE_WIDTH * IMAGE_HEIGHT, 1);
+    if (!matrix) {
+        log_error("Failed to create matrix");
+        return NULL;
+    }
+    if (!mtx_set_column(matrix, 0, &data->pixels[0], IMAGE_WIDTH * IMAGE_HEIGHT)) {
+        log_error("Failed to fill in the matrix");
+        mtx_destroy_matrix(matrix);
+        return NULL;
+    }
+    return matrix;
 }
 
 /*

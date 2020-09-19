@@ -39,6 +39,7 @@ double __gen_random_double(double, double);
 neural_layer_t *__get_input_layer(network_t *);
 neural_layer_t *__get_hidden_layer(network_t *, uint32_t);
 neural_layer_t *__get_ouput_layer(network_t *);
+neural_layer_t *__get_layer_by_index(network_t *, uint32_t);
 
 
 //! Structure to describe the neural network object
@@ -436,7 +437,7 @@ bool train(network_t *network, nn_data_batch *training_data, int epochs, uint32_
             log_error("Failed to create divide the training batch");
             return false;
         }
-        if (!update_suite(network, suite, eta)) {
+        if (!backprop(network, suite, eta)) {
             log_error("Failed to update the mini batch");
             return false;
         }
@@ -448,7 +449,7 @@ bool train(network_t *network, nn_data_batch *training_data, int epochs, uint32_
     return true;
 }
 
-bool update_suite(network_t *network, nn_suite_t *training_suite, double learning_rate)
+bool backprop(network_t *network, nn_suite_t *training_suite, double learning_rate)
 {
     uint32_t serialized_expected_output_size = 0;
     double *serizlied_expected_output = NULL;
@@ -462,7 +463,7 @@ bool update_suite(network_t *network, nn_suite_t *training_suite, double learnin
         return NULL;
     }
     for (i = 0; i < training_suite->num_batch; i++) {
-        __backprop(network, training_suite->batches[i]);
+        __backprop_training_batch(network, training_suite->batches[i]);
     }
 }
 
@@ -495,20 +496,89 @@ void *__backprop_training_batch(network_t *network, nn_data_batch_t *training_ba
 bool __backprop_training_data(network_t *network, nn_data_t *training_data)
 {
     matrix_t *result_dot = NULL;
-    matrix_t *result_sum = NULL;
+    matrix_t *output_matrix = NULL;
     matrix_t **results = NULL;
+    matrix_t *activation_matrix = NULL;
+    matrix_t *temp_matrix = NULL;
+    matrix_t *weight_matrix = NULL;
+    neural_layer_t *layer = NULL;
+    matrix_t **activation_list = NULL;
+    size_t activation_list_size = 0;
+    matrix_t **output_list = NULL;
+    size_t **output_list_size = 0;
     uint32_t i = 0;
-    for (i = 0; i < network->num_layers - 1; i++) {
-        // derive weight_matrix
-        result_dot = mtx_dot(weight_matrix, input_matrix);
-        if (!result_dot) {
-            return false;
-        }
-        result_sum = mtx_sum(result_dot, bias_matrix);
-        if (!result_sum) {
-            return false;
-        }
+    
+    // the inputs make up the first layer of activation
+    activation_matrix = nn_data_to_matrix(training_data);
+    if (!activation_matrix) {
+        log_error("Failed to create the activation matrix");
+        return false;
     }
+    for (i = 0; i < network->num_layers - 1; i++) {
+        layer = __get_layer_by_index(network, i);
+        weight_matrix = __create_weight_matrix(layer);
+        result_dot = mtx_dot(weight_matrix, activation_matrix);
+        if (!result_dot) {
+            log_error("Failed to dot prodcut");
+            return false;
+        }
+        bias_matrix = __create_bias_matrix(layer);
+        output_matrix = mtx_sum(result_dot, bias_matrix);
+        if (!output_matrix) {
+            log_error("Failed to sum");
+            return false;
+        }
+        output_list[i] = output_matrix;
+        activation_list[i] = activation_matrix;
+        activation_matrix = apply_sigmoid_function(output_matrix);
+    }
+
+}
+
+matrix_t *__create_weight_matrix(neural_layer_t *layer)
+{
+    matrix_t *weight_matrix = NULL;
+    uint32_t = i;
+    if (!layer) {
+        log_error(strerror(EINVAL));
+        return NULL;
+    }
+    switch(layer->type) {
+        case LAYER_TYPE_INPUT:
+            weight_matrix = mtx_create_matrix(layer->input_neurons[0]->num_weights, layer->num_neurons);
+            if (!weight_matrix) {
+                log_error("Failed to create the weight matrix");
+                return NULL;
+            }
+            for (i = 0; i < layer->num_neurons; i++) {
+                if (!mtx_set_column(weight_matrix, i, layer->input_neurons[i]->weights,
+                            layer->input_neurons[i]->num_weights)) {
+                    log_error("Failed to set a column in the weight matrix");
+                    mtx_destroy_matrix(weight_matrix);
+                    return NULL;
+                }
+            }
+           break;
+        case LAYER_TYPE_HIDDEN:
+            weight_matrix = mtx_create_matrix(layer->hidden_neurons[0]->num_weights, layer->num_neurons);
+            if (!weight_matrix) {
+                log_error("Failed to create the weight matrix");
+                return NULL;
+            }
+            for (i = 0; i < layer->num_neurons; i++) {
+                if (!mtx_set_column(weight_matrix, i, layer->hidden_neurons[i]->weights,
+                            layer->hidden_neurons[i]->num_weights)) {
+                    log_error("Failed to set a column in the weight matrix");
+                    mtx_destroy_matrix(weight_matrix);
+                    return NULL;
+                }
+            }
+            break;
+        default:
+            log_error("Invalid layer type");
+            return NULL;
+    }
+    return weight_matrix;
 }
 
 //! Internal function to initialize weigths of the output layers

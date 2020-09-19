@@ -2,8 +2,8 @@
 #define IMAGE_HEIGHT 28
 
 typedef struct nn_data_struct {
-    uint8_t pixels[IMAGE_WIDTH][IMAGE_HEIGHT];
-    uint8_t label;
+    double pixels[IMAGE_WIDTH*IMAGE_HEIGHT];
+    uint32_t label;
 } nn_data_t;
 
 typedef struct nn_data_batch_struct {
