@@ -502,35 +502,14 @@ bool __backprop_training_data(network_t *network, nn_data_t *training_data)
     matrix_t *temp_matrix = NULL;
     matrix_t *weight_matrix = NULL;
     neural_layer_t *layer = NULL;
-    matrix_t **activation_list = NULL;
-    size_t activation_list_size = 0;
-    matrix_t **output_list = NULL;
-    size_t output_list_size = 0;
+    matrix_list_t **activation_list = NULL;
+    matrix_list_t **output_list = NULL;
     uint32_t i = 0;
     
-    // the inputs make up the first layer of activation
-    activation_matrix = nn_data_to_matrix(training_data);
-    if (!activation_matrix) {
-        log_error("Failed to create the activation matrix");
+    if (!__feed_forward_for_backprop(network,
+                training_data,activation_list, output_list)) {
+        log_error("Failed to feed forward training_data to the neural network");
         return false;
-    }
-    for (i = 0; i < network->num_layers - 1; i++) {
-        layer = __get_layer_by_index(network, i);
-        weight_matrix = __create_weight_matrix(layer);
-        result_dot = mtx_dot(weight_matrix, activation_matrix);
-        if (!result_dot) {
-            log_error("Failed to dot prodcut");
-            return false;
-        }
-        bias_matrix = __create_bias_matrix(layer);
-        output_matrix = mtx_sum(result_dot, bias_matrix);
-        if (!output_matrix) {
-            log_error("Failed to sum");
-            return false;
-        }
-        output_list[i] = output_matrix;
-        activation_list[i] = activation_matrix;
-        activation_matrix = apply_sigmoid_function(output_matrix);
     }
 
     matrix_t *cost_derivative_change = NULL;
@@ -571,7 +550,112 @@ bool __backprop_training_data(network_t *network, nn_data_t *training_data)
         delta_bias[network->num_layers - 1 - i] = delta;
         delta_weight[network->num_layers - 1 - i] = delta_weight_matrix;
     }
-        
+}
+
+bool __feed_forward_for_backprop(network_t *network, nn_data_t *training_data,
+        matrix_list_t **activations, matrix_list_t **outputs)
+{
+    matrix_list_t *activation_matrix_list= NULL;
+    matrix_list_t *output_matrix_list = NULL;
+    matrix_t *activation_matrix = NULL;
+    uint32_t i = 0;
+
+    activation_matrix_list = mtxl_create_matrix_list();
+    if (!activation_matrix_list) {
+        log_error("Failed to create activation matrix list");
+        return false;
+    }
+    output_matrix_list = mtxl_create_matrix_list();
+    if (!output_matrix_list) {
+        log_error("Failed to create output matrix list");
+        return false;
+    }
+    // the inputs make up the first layer of activation vector
+    activation_matrix = nn_data_to_matrix(training_data);
+    if (!activation_matrix) {
+        log_error("Failed to create a activation matrix from the training data");
+        return false;
+    }
+    for (i = 0; i < network->num_layers - 1; i++) {
+        matrix_t *weight_activation_dot_matrix = NULL;
+        matrix_t *output_matrix = NULL;
+        matrix_t *weight_matrix = NULL;
+        matrix_t *bias_matrix = NULL;
+        neural_layer_t *layer = NULL;
+
+        layer = __get_layer_by_index(network, i);
+        if (!layer) {
+            log_error("Failed to retrieve a neural layer by index: [%u]", i);
+            goto fail;
+        }
+        weight_matrix = __create_weight_matrix(layer);
+        if (!weight_matrix) {
+            log_error("Failed to retrieve the weight_matrix");
+            goto fail;
+        }
+        weight_activation_dot_matrix = mtx_dot(weight_matrix, activation_matrix);
+        mtx_destroy_matrix(weight_matrix);
+        if (!weight_activation_dot_matrix) {
+            log_error("Failed to dot prodcut");
+            goto fail;
+        }
+        bias_matrix = __create_bias_matrix(layer);
+        if (!bias_matrix) {
+            log_error("Failed to create a bias matrix");
+            goto fail;
+        }
+        output_matrix = mtx_sum(weight_activation_dot_matrix, bias_matrix);
+        mtx_destroy_matrix(weight_activation_dot_matrix);
+        mtx_destroy_matrix(bias_matrix);
+        if (!output_matrix) {
+            log_error("Failed to sum the dot product and the bias matrix");
+            goto fail;
+        }
+        mtxl_add_matrix(output_matrix_list, output_matrix);
+        mtxl_add_matrix(actiavtion_matrix_list, activation_matrix);
+        activation_matrix = apply_sigmoid_function(output_matrix);
+    }
+    mtxl_add_matrix(activation_matrix_list, activation_matrix);
+    *activations = activation_matrix_list;
+    *outputs = output_matrix_list;
+    return true;
+fail:
+    mtxl_destroy_list(activation_matrix_list);
+    mtxl_destroy_list(output_matrix_list);
+    mtx_destroy_matrix(activation_matrix);
+    return false;
+}
+
+bool __backprop_outputs_and_activations(network_t *network, nn_data_t *training_data,
+        matrix_list_t *activation_list, matrix_list_t *output_list)
+{
+    matrix_t *activation_delta_vector = NULL;
+    matrix_t *cost_delta_vector = NULL;
+    matrix_t *delta = NULL;
+    uint32_t i = 0;
+    cost_delta_vector = 
+        get_cost_derivative(activation_list->matrix_list[activation_list->num_matrix - 1], training_data->label);
+    if (!cost_delta_vector) {
+        log_error("Failed to get the cost derivative of the last activation vector");
+        return false;
+    }
+    activation_delta_vector = apply_sigmoid_prime(output_list[output_list->num_matrix - 1]);
+    if (!activation_delta_vector) {
+        log_error("Failed to apply sigmoid derivative to the last output vector");
+        mtx_destroy_matrix(cost_delta_vector);
+        return false;
+    }
+    delta = mtx_multiply_column_vectors(cost_delta_vector, 0, activation_delta_vector, 0);
+    if (!delta) {
+        log_error("Failed to multiply vectors");
+        return false;
+    }
+
+fail:
+    mtx_destroy_matrix(cost_delta_vector);
+    mtx_destroy_matrix(activation_delta_vector);
+    mtx_destroy_matrix(delta);
+    return false;
 }
 
 matrix_t *__create_weight_matrix(neural_layer_t *layer)
