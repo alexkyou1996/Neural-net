@@ -505,7 +505,7 @@ bool __backprop_training_data(network_t *network, nn_data_t *training_data)
     matrix_t **activation_list = NULL;
     size_t activation_list_size = 0;
     matrix_t **output_list = NULL;
-    size_t **output_list_size = 0;
+    size_t output_list_size = 0;
     uint32_t i = 0;
     
     // the inputs make up the first layer of activation
@@ -533,6 +533,45 @@ bool __backprop_training_data(network_t *network, nn_data_t *training_data)
         activation_matrix = apply_sigmoid_function(output_matrix);
     }
 
+    matrix_t *cost_derivative_change = NULL;
+    cost_derivative_change = get_cost_derivative(activation_list[activation_list_size - 1], training_data->label);
+    matrix_t *activation_function_derivative = NULL;
+    activation_function_derivative = get_sigmoid_derivative(output_list[output_list_size - 1]);
+    matrix_t *delta = NULL;
+    for (i = 0; i < output_list_size;i++) {
+        delta = mtx_multiply_column_vectors(cost_derivative_change, 0, activation_function_derivative, 0);
+    }
+
+
+
+    // hidden layer back propagation
+    for (i = 2; i < network->num_layers; i++) {
+        uint32_t j = 0;
+        uint32_t num_rows = 0;
+        // propagate backwards from the last hidden layer
+        // output_list_size - 1 to get last, -2 to get 2nd last which is the last of the hidden layers
+        matrix_t *output_vector = output_list[output_list_size - i];
+        matrix_t *output_vector_sigmoid_prime = get_sigmoid_derivative(output_vector);
+
+        // start from the last hidden layer
+        layer = __get_layer_by_index(network->num_layers - i);
+        // create a vector matrix
+        matrix_t *weight_vector = __create_weight_matrix(layer);
+        matrix_t *transposed_weight_vector = mtx_transpose(weight_vector);
+        matrix_t *dot_matrix = mtx_dot(transposed_weight_vector, delta);
+        matrix_t *temp_matrix = NULL;
+        num_rows = mtx_get_num_rows(output_vector_sigmoid_prime);
+        for (j = 0; j < num_rows; j++) {
+            temp_matrix = mtx_multiply_column_vectors(dot_matrix, output_vector_sigmoid_prime);
+        }
+
+        delta = temp_matrix;
+        temp_matrix = mtx_transpose(activation_list[activation_list_size - i - 1]);
+        delta_weight_matrix = mtx_dot(delta, temp_matrix);
+        delta_bias[network->num_layers - 1 - i] = delta;
+        delta_weight[network->num_layers - 1 - i] = delta_weight_matrix;
+    }
+        
 }
 
 matrix_t *__create_weight_matrix(neural_layer_t *layer)
