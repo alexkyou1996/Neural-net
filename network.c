@@ -467,51 +467,71 @@ bool backprop(network_t *network, nn_suite_t *training_suite, double learning_ra
     }
 }
 
-bool __backprop_training_batch(network_t *network, nn_data_batch_t *training_batch)
+bool __backprop_training_batch(network_t *network, nn_data_batch_t *training_batch, double learning_rate)
 {
     neural_layer_t *delta_layers = NULL;
+    double learning_rate_per_batch = 0;
     uint32_t i = 0;
     uint32_t j = 0;
     matrix_list_t *main_bias_list = NULL;
     matrix_list_t *main_weight_list = NULL;
-    matrix_list_t *delta_bais_list = NULL;
+    matrix_list_t *delta_bias_list = NULL;
     matrix_list_t *delta_weight_list = NULL;
+    matrix_list_t *weight_list = NULL;
+    matrix_list_t *bias_list = NULL;
     if (!__create_matrix_list_of_bias_and_weights(network,
-                &initial_bias_list, &initial_weight_list, false)) {
+                &main_bias_list, &main_weight_list, false)) {
         log_error("Failed to create zeroed list of matrices for bias and weights");
         return false;
     }
     for (i = 0; i < training_batch->num_data; i++) {
         if (!__backprop_training_data(network,
-                    training_batch->data[i], &delta_bais_list, &delta_weight_list)) {
+                    training_batch->data[i], &delta_bias_list, &delta_weight_list)) {
             log_error("Failed backpropagation");
+            mtxl_destroy_list(main_bias_list);
+            mtxl_destroy_list(main_weight_list);
             return false;
         }
-        for (j = 0; j < delta_bais_list->num_matrix; j++) {
+        for (j = 0; j < delta_bias_list->num_matrix; j++) {
             matrix_t *sum = NULL;
             sum = mtx_sum(main_bias_list->matrix_list[j], delta_bias_list->matrix_list[j]);
-            if (!sum) {
-                log_error("Failed to sum matrix");
-                continue;
-            }
             mtx_destroy_matrix(main_bias_list->matrix_list[j]);
             main_bias_list->matrix_list[j] = sum;
         }
         for (j = 0; j < delta_weight_list->num_matrix; j++) {
             matrix_t *sum = NULL;
             sum = mtx_sum(main_weight_list->matrix_list[j], delta_weight_list->matrix_list[j]);
-            if (!sum) {
-                log_error("Failed to sum matrix");
-                continue;
-            }
             mtx_destroy_matrix(main_weight_list->matrix_list[j]);
             main_weight_list->matrix_list[j] = sum;
         }
     }
+    mtxl_destroy_list(delta_bias_list);
+    mtxl_destroy_list(delta_weight_list);
+    learning_rate_per_batch = lerarning_rate / training_batch->num_data;
+    if (!__create_matrix_list_of_bias_and_weights(network,
+                &bias_list, &weight_list, true)) {
+        log_error("Failed to create the bias and weight matrix");
+        return false;
+    }
+    for (i = 0; i < weight_list->num_matrix; i++) {
+        matrix_t *sum = NULL;
+        mtx_multiply_by_single_value(main_weight_list->matrix_list[i], learning_rate_per_batch);
+        sum = mtx_subtract(weight_list->matrix_list[i],main_weight_list->matrix_list[i]);
+        mtx_destroy_matrix(weight_list->matrix_list[i]);
+        weight_list->matrix_list[i] = sum;
+    }
+    for (i = 0; i < bias_list->num_matrix; i++) {
+        matrix_t *sum = NULL;
+        mtx_multiply_by_single_value(main_bias_list->matrix_list[i], learning_rate_per_batch);
+        sum = mtx_subtract(bias_list->matrix_list[i],main_bias_list->matrix_list[i]);
+        mtx_destroy_matrix(bias_list->matrix_list[i]);
+        bias_list->matrix_list[i] = sum;
+    }
+    __update_bias_and_weights(network, bias_list, weight_list);
 }
 
 bool __backprop_training_data(network_t *network, nn_data_t *training_data,
-        matrix_list_t **delta_bais_list, matrix_list_t **delta_weight_list)
+        matrix_list_t **delta_bias_list, matrix_list_t **delta_weight_list)
 {
     matrix_list_t *activation_list = NULL;
     matrix_list_t *output_list = NULL;
