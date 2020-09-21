@@ -467,80 +467,71 @@ bool backprop(network_t *network, nn_suite_t *training_suite, double learning_ra
     }
 }
 
-void *__backprop_training_batch(network_t *network, nn_data_batch_t *training_batch)
+bool __backprop_training_batch(network_t *network, nn_data_batch_t *training_batch)
 {
     neural_layer_t *delta_layers = NULL;
     uint32_t i = 0;
-    delta_layers = create_delta_layer(network->layers, network->num_layers);
-    if (!delta_layers) {
-        log_error("Failed to create delta layer");
-        return NULL;
+    uint32_t j = 0;
+    matrix_list_t *main_bias_list = NULL;
+    matrix_list_t *main_weight_list = NULL;
+    matrix_list_t *delta_bais_list = NULL;
+    matrix_list_t *delta_weight_list = NULL;
+    if (!__create_matrix_list_of_bias_and_weights(network,
+                &initial_bias_list, &initial_weight_list, false)) {
+        log_error("Failed to create zeroed list of matrices for bias and weights");
+        return false;
     }
-
     for (i = 0; i < training_batch->num_data; i++) {
-
+        if (!__backprop_training_data(network,
+                    training_batch->data[i], &delta_bais_list, &delta_weight_list)) {
+            log_error("Failed backpropagation");
+            return false;
+        }
+        for (j = 0; j < delta_bais_list->num_matrix; j++) {
+            matrix_t *sum = NULL;
+            sum = mtx_sum(main_bias_list->matrix_list[j], delta_bias_list->matrix_list[j]);
+            if (!sum) {
+                log_error("Failed to sum matrix");
+                continue;
+            }
+            mtx_destroy_matrix(main_bias_list->matrix_list[j]);
+            main_bias_list->matrix_list[j] = sum;
+        }
+        for (j = 0; j < delta_weight_list->num_matrix; j++) {
+            matrix_t *sum = NULL;
+            sum = mtx_sum(main_weight_list->matrix_list[j], delta_weight_list->matrix_list[j]);
+            if (!sum) {
+                log_error("Failed to sum matrix");
+                continue;
+            }
+            mtx_destroy_matrix(main_weight_list->matrix_list[j]);
+            main_weight_list->matrix_list[j] = sum;
+        }
     }
-
-    // b = 
-    // actviation = input data
-    // activation = x[768][1]
-
-    // activations = bias layer
-
-    // prepend input data(first layer) to activations (bias layer). Before this activations only had bias for 2nd layer and on
-
-    // zs = clone of bias structure
-
 }
 
-bool __backprop_training_data(network_t *network, nn_data_t *training_data)
+bool __backprop_training_data(network_t *network, nn_data_t *training_data,
+        matrix_list_t **delta_bais_list, matrix_list_t **delta_weight_list)
 {
-    matrix_t *result_dot = NULL;
-    matrix_t *output_matrix = NULL;
-    matrix_t **results = NULL;
-    matrix_t *activation_matrix = NULL;
-    matrix_t *temp_matrix = NULL;
-    matrix_t *weight_matrix = NULL;
-    neural_layer_t *layer = NULL;
-    matrix_list_t **activation_list = NULL;
-    matrix_list_t **output_list = NULL;
-    uint32_t i = 0;
+    matrix_list_t *activation_list = NULL;
+    matrix_list_t *output_list = NULL;
     
     if (!__feed_forward_for_backprop(network,
-                training_data,activation_list, output_list)) {
+                training_data, &activation_list, &output_list)) {
         log_error("Failed to feed forward training_data to the neural network");
         return false;
     }
-
-
-
-    // hidden layer back propagation
-    for (i = 2; i < network->num_layers; i++) {
-        uint32_t j = 0;
-        uint32_t num_rows = 0;
-        // propagate backwards from the last hidden layer
-        // output_list_size - 1 to get last, -2 to get 2nd last which is the last of the hidden layers
-        matrix_t *output_vector = output_list[output_list_size - i];
-        matrix_t *output_vector_sigmoid_prime = get_sigmoid_derivative(output_vector);
-
-        // start from the last hidden layer
-        layer = __get_layer_by_index(network->num_layers - i);
-        // create a vector matrix
-        matrix_t *weight_vector = __create_weight_matrix(layer);
-        matrix_t *transposed_weight_vector = mtx_transpose(weight_vector);
-        matrix_t *dot_matrix = mtx_dot(transposed_weight_vector, delta);
-        matrix_t *temp_matrix = NULL;
-        num_rows = mtx_get_num_rows(output_vector_sigmoid_prime);
-        for (j = 0; j < num_rows; j++) {
-            temp_matrix = mtx_multiply_column_vectors(dot_matrix, output_vector_sigmoid_prime);
-        }
-
-        delta = temp_matrix;
-        temp_matrix = mtx_transpose(activation_list[activation_list_size - i - 1]);
-        delta_weight_matrix = mtx_dot(delta, temp_matrix);
-        delta_bias[network->num_layers - 1 - i] = delta;
-        delta_weight[network->num_layers - 1 - i] = delta_weight_matrix;
+    if (!__backprop_outputs_and_activations(network, training_data,
+                activation_list, output_list, delta_bias_list, delta_weight_list)) {
+        log_error("Failed to backprop with output and activation values");
+        mtxl_destroy_list(activation_list);
+        mtxl_destroy_list(output_list);
+        return false;
     }
+    mtxl_destroy_list(activation_list);
+    mtxl_destroy_list(output_list);
+    return true;
+
 }
 
 bool __feed_forward_for_backprop(network_t *network, nn_data_t *training_data,
@@ -575,9 +566,6 @@ bool __feed_forward_for_backprop(network_t *network, nn_data_t *training_data,
         neural_layer_t *weight_layer = NULL;
         neural_layer_t *bias_layer = NULL;
 
-        //FIXME: cannot create bias and weight matrix using this layer because 
-        //       some layers do not have weights or bias
-        // solution should be to create two layer variable
         weight_layer = __get_layer_by_index(network, i);
         bias_layer = __get_layer_by_index(network, i + 1);
         weight_matrix = __create_weight_matrix(weight_layer, true);
@@ -619,7 +607,8 @@ fail:
 }
 
 bool __backprop_outputs_and_activations(network_t *network, nn_data_t *training_data,
-        matrix_list_t *activation_list, matrix_list_t *output_list)
+        matrix_list_t *activation_list, matrix_list_t *output_list,
+        matrix_list_t ** bias_list_changes, matrix_list_t **weight_list_changes)
 {
     matrix_t *activation_delta_vector = NULL;
     matrix_t *cost_delta_vector = NULL;
@@ -632,18 +621,18 @@ bool __backprop_outputs_and_activations(network_t *network, nn_data_t *training_
         get_cost_derivative(activation_list->matrix_list[activation_list->num_matrix - 1], training_data->label);
     if (!cost_delta_vector) {
         log_error("Failed to get the cost derivative of the last activation vector");
-        return false;
+        goto fail;
     }
     activation_delta_vector = apply_sigmoid_prime(output_list[output_list->num_matrix - 1]);
     if (!activation_delta_vector) {
         log_error("Failed to apply sigmoid derivative to the last output vector");
         mtx_destroy_matrix(cost_delta_vector);
-        return false;
+        goto fail;
     }
     delta = mtx_multiply_column_vectors(cost_delta_vector, 0, activation_delta_vector, 0);
     if (!delta) {
         log_error("Failed to multiply vectors");
-        return false;
+        goto fail;
     }
     __create_matrix_list_of_bias_and_weights(network, &delta_bias_list, &delta_weight_list, false);
     delta_bias_list[delta_bias_list->num_matrix - 1] = delta;
@@ -654,6 +643,97 @@ bool __backprop_outputs_and_activations(network_t *network, nn_data_t *training_
         goto fail;
     }
     delta_weight_list[delta_weight_list->num_matrix - 1] = mtx_dot(delta, transposed_activation_vector);
+    if (!delta_weight_list[delta_weight_list->num_matrix - 1]) {
+        log_error("Failed to multiply vectors");
+        goto fail;
+    }
+
+    // hidden layer back propagation
+    for (i = 2; i < network->num_layers; i++) {
+        neural_layer_t *layer = NULL;
+        matrix_t *output_vector_prime = NULL;
+        matrix_t *weight_vector = NULL;
+        matrix_t *transposed_weight_vector = NULL;
+        matrix_t *dot_matrix = NULL;
+        matrix_t *temp_matrix = NULL;
+        uint32_t num_rows = 0;
+        // start from the last hidden layer
+        layer = __get_layer_by_index(network->num_layers - i);
+        // create a vector matrix from the weights
+        weight_vector = __create_weight_matrix(layer, true);
+        if (!weight_vector) {
+            log_error("Failed to create weight matrix");
+            goto fail;
+        }
+        transposed_weight_vector = mtx_transpose(weight_vector);
+        if (!transposed_weight_vector) {
+            log_error("Failed to transpose a weight vector");
+            mtx_destroy_matrix(weight_vector);
+            goto fail;
+        }
+        dot_matrix = mtx_dot(transposed_weight_vector, delta);
+        if (!dot_matrix) {
+            log_error("Failed to multiply matrix");
+            mtx_destroy_matrix(transposed_weight_vector);
+            mtx_destroy_matrix(weight_vector);
+            goto fail;
+        }
+        // propagate backwards from the last hidden layer
+        // output_list_size - 1 to get last, -2 to get 2nd last which is the last of the hidden layers
+        matrix_t *output_vector = output_list[output_list_size - i];
+        output_vector_prime = get_sigmoid_derivative(output_vector);
+        if (!output_vector_prime) {
+            log_error("Failed to apply sigmoid derivative to the output vector");
+            mtx_destroy_matrix(dot_matrix);
+            mtx_destroy_matrix(transposed_weight_vector);
+            mtx_destroy_matrix(weight_vector);
+            goto loop_fail;
+        }
+        num_rows = mtx_get_num_rows(output_vector_prime);
+        temp_matrix = mtx_multiply_column_vectors(dot_matrix, output_vector_prime);
+        if (!temp_matrix) {
+            log_error("Failed to multiply column vectors");
+            mtx_destroy_matrix(output_vector_prime);
+            mtx_destroy_matrix(dot_matrix);
+            mtx_destroy_matrix(transposed_weight_vector);
+            mtx_destroy_matrix(weight_vector);
+            goto fail;
+        }
+        delta = temp_matrix;
+        temp_matrix = mtx_transpose(activation_list[activation_list_size - i - 1]);
+        if (!temp_matrix) {
+            log_error("Failed to transpose a matrix");
+            mtx_destroy_matrix(output_vector_prime);
+            mtx_destroy_matrix(dot_matrix);
+            mtx_destroy_matrix(transposed_weight_vector);
+            mtx_destroy_matrix(weight_vector);
+            goto fail;
+        }
+        delta_weight_matrix = mtx_dot(delta, temp_matrix);
+        if (!delta_weight_matrix) {
+            log_error("Failed to multiply matrix");
+            mtx_destroy_matrix(temp_matrix);
+            mtx_destroy_matrix(output_vector_prime);
+            mtx_destroy_matrix(dot_matrix);
+            mtx_destroy_matrix(transposed_weight_vector);
+            mtx_destroy_matrix(weight_vector);
+            goto fail;
+        }
+        mtx_destroy_matrix(temp_matrix);
+        mtx_destroy_matrix(output_vector_prime);
+        mtx_destroy_matrix(dot_matrix);
+        mtx_destroy_matrix(transposed_weight_vector);
+        mtx_destroy_matrix(weight_vector);
+        delta_bias_list[network->num_layers - 1 - i] = delta;
+        delta_weight_list[network->num_layers - 1 - i] = delta_weight_matrix;
+    }
+    mtx_destroy_matrix(cost_delta_vector);
+    mtx_destroy_matrix(activation_delta_vector);
+    mtxl_destroy_list(delta_bias_list);
+    mtxl_destroy_list(delta_weight_list);
+    *bias_list_changes = delta_bias_list;
+    *weight_list_changes = delta_weight_list;
+    return true;
 
 
 fail:
