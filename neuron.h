@@ -1,3 +1,6 @@
+#ifndef _NERUON_H_
+#define _NUERON_H_
+
 //! Struct to describe input neurons
 typedef struct input_neuron_struct {
     //! number of weights connected to other neurons
@@ -64,3 +67,5 @@ void destroy_hidden_neuron(void *);
  * @params  void *              The neuron object to destroy
  */
 void destroy_output_neuron(void *);
+
+#endif

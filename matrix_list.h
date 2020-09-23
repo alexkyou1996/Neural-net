@@ -1,3 +1,6 @@
+#ifndef _MATRIX_LIST_H
+#define _MATRIX_LIST_H
+
 #include <stdbool.h>
 #include <stdint.h>
 
@@ -32,3 +35,4 @@ bool mtxl_add_matrix(matrix_list_t *, matrix_t *);
  */
 void mtxl_destroy_list(void *);
 
+#endif

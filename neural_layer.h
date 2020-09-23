@@ -1,3 +1,6 @@
+#ifndef _NEURAL_LAYER_H_
+#define _NEURAL_LAYER_H_
+
 #include "neuron.h"
 //! Structure to describe a single layer of a neural network
 typedef struct  neural_layer_struct {
@@ -61,3 +64,5 @@ neural_layer_t *create_output_layer(uint32_t);
  * @params  void *              The neural layer object to destroy
  */
 void destroy_neural_layer(void *);
+
+#endif

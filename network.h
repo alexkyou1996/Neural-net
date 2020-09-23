@@ -1,3 +1,6 @@
+#ifndef _NETWORK_H_
+#define _NETWORK_H_
+
 #include "nn_data.h"
 #include "neural_layer.h"
 typedef struct network_struct network_t;
@@ -76,3 +79,5 @@ void update_mini_batches(double ****, double);
  * @returns double ****
  */
 double ****back_prop(double **, double **);
+
+#endif

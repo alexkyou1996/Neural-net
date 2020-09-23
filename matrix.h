@@ -1,3 +1,6 @@
+#ifndef _MATRIX_H_
+#define _MATRIX_H_
+
 #include <stdbool.h>
 #include <stdint.h>
 
@@ -118,3 +121,5 @@ uint32_t mtx_get_num_columns(matrix_t *);
  * @params  matrix_t *          The matrix to print
  */
 void mtx_print(matrix_t *);
+
+#endif

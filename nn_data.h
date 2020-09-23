@@ -1,3 +1,6 @@
+#ifndef _NN_DATA_H_
+#define _NN_DATA_H_
+
 #define IMAGE_WIDTH  28
 #define IMAGE_HEIGHT 28
 
@@ -21,3 +24,5 @@ typedef enum nn_data_type_enum {
     NN_DATA_TRAIN = 0,
     NN_DATA_TEST,
 } nn_data_type_t;
+
+#endif

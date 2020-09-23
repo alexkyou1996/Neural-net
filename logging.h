@@ -1,3 +1,6 @@
+#ifndef _LOGGING_H_
+#define _LOGGING_H_
+
 #define LOG_ERROR(format, ...) log_error(__FILE__, __func__, __LINE__, format, ## __VA_ARGS__)
 #define LOG_LINE(format, ...) log_info(__FILE__, __func__, __LINE__, format, ## __VA_ARGS__)
 
@@ -13,3 +16,4 @@ int log_error(const char *, const char *, int, char *, ...);
 //! Function to log informational stuff
 int log_info(const char *, const char *, int, char *, ...);
 
+#endif
