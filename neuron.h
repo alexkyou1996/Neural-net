@@ -1,5 +1,5 @@
-#ifndef _NERUON_H_
-#define _NUERON_H_
+#ifndef _NEURON_H_ 
+#define _NEURON_H_
 
 //! Struct to describe input neurons
 typedef struct input_neuron_struct {

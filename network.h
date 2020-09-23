@@ -11,16 +11,7 @@ typedef struct network_struct network_t;
  *
  * @returns network_t           The neural network object
  */
-network_t create_network(uint32_t *, uint32_t);
-
-//! Function to feed input data to the neural network
-/* 
- * @params  network_t *         The neural network
- * @params  nn_data_t *         The data object to feed in
- *
- * @returns bool                Whether success
- */
-bool feed_input_to_network(network_t *, nn_data_t *);
+network_t *create_network(uint32_t *, uint32_t);
 
 //! Function copy another layer's structure without its values
 /*
@@ -54,30 +45,37 @@ double **feed_forward(double **, size_t, size_t);
 
 //! Stochastic gradient descent
 /*
- * @param double ****   The training data
- * @param int           The epoch
- * @param int           The batch size
- * @param double        ETA
- * @param double ****   The test data
+ * @params  double ****   The training data
+ * @params  int           The epoch
+ * @params  int           The batch size
+ * @params  double        ETA
+ * @params  double ****   The test data
  */
 void SGD(double ****, int, uint32_t, double, double ****);
 
 
 //! Function to update training data
 /*
- * @param double ****   Training data
- * @param double        ETA
+ * @params  double ****   Training data
+ * @params  double        ETA
  */
 void update_mini_batches(double ****, double);
 
 //! Function to find the difference between actual and desired
 //! and change weights accordingly
 /*
- * @param double **     
- * @param double **
+ * @params  double **     
+ * @params  double **
  *
  * @returns double ****
  */
 double ****back_prop(double **, double **);
 
+//! Function to evaluate an input data and test the reuslt
+/*
+ * @params  nn_data_batch_t *   The testing data
+ *
+ * @returns bool                Whether success
+ */
+bool evalute(nn_data_batch_t *);
 #endif

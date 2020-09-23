@@ -1,6 +1,9 @@
 #include <stdbool.h>
 #include <stdlib.h>
 #include <stdint.h>
+#include <string.h>
+#include <errno.h>
+#include <time.h>
 
 #include "logging.h"
 #include "matrix_list.h"
@@ -8,6 +11,8 @@
 #include "matrix.h"
 #include "neural_layer.h"
 #include "neuron.h"
+
+
 #define NUM_LAYERS 3
 
 #define NUM_INPUT_NEURONS 784
@@ -46,7 +51,16 @@ neural_layer_t *__get_input_layer(network_t *);
 neural_layer_t *__get_hidden_layer(network_t *, uint32_t);
 neural_layer_t *__get_ouput_layer(network_t *);
 neural_layer_t *__get_layer_by_index(network_t *, uint32_t);
-
+bool __create_matrix_list_of_bias_and_weights(network_t *, matrix_list_t **, matrix_list_t **, bool);
+bool __backprop_training_data(network_t *, nn_data_t *, matrix_list_t **, matrix_list_t **);
+bool __update_bias_and_weights(network_t *, matrix_list_t *, matrix_list_t *);
+bool __feed_forward_for_backprop(network_t *, nn_data_t *, matrix_list_t **, matrix_list_t **);
+bool __backprop_outputs_and_activations(network_t *, nn_data_t *,
+        matrix_list_t *, matrix_list_t *, matrix_list_t ** , matrix_list_t **);
+matrix_t *__create_weight_matrix(neural_layer_t *, bool);
+matrix_t *__create_bias_matrix(neural_layer_t *, bool);
+bool backprop(network_t *, nn_data_suite_t *, double);
+bool __backprop_training_batch(network_t *, nn_data_batch_t *, double);
 
 //! Structure to describe the neural network object
 typedef struct network_struct {
@@ -64,12 +78,12 @@ typedef struct network_struct {
  *
  * @returns network_t           The neural network object
  */
-network_t create_network(uint32_t *num_neurons_per_layer, uint32_t num_layers)
+network_t *create_network(uint32_t *num_neurons_per_layer, uint32_t num_layers)
 {
     neural_layer_t **layers = NULL;
     network_t *network = NULL;
     uint32_t i = 0;
-    if (!num_neurons_per_layer || !num_layers || num_layer < MIN_NEURAL_LAYER) {
+    if (!num_neurons_per_layer || !num_layers || num_layers < MIN_NEURAL_LAYER) {
         LOG_ERROR(strerror(EINVAL));
         return NULL;
     }
@@ -89,28 +103,6 @@ network_t create_network(uint32_t *num_neurons_per_layer, uint32_t num_layers)
     network->layers = layers;
     __initialize_bias_and_weights(network);
     return network;
-}
-
-//! Function to feed input data to the neural network
-/* 
- * @params  network_t *         The neural network
- * @params  nn_data_t *         The data object to feed in
- *
- * @returns bool                Whether success
- */
-bool feed_input_to_network(network_t *network, nn_data_t *input_data)
-{
-    neural_layer *input_layer = NULL;
-    double *serialized_inputs = NULL;
-    uint32_t i = 0;
-    if (!network || !input) {
-        LOG_ERROR(strerror(EINVAL));
-        return false;
-    }
-    input_layer = __get_input_layer(network);
-    serialized_inputs = nn_data_serialize_input(input_data);
-    set_inputs_in_input_layer(input_layer, serialized_inputs);
-    return true;
 }
 
 //! Function copy another layer's structure without its values
@@ -160,15 +152,15 @@ neural_layer_t **__create_layers(uint32_t *num_neurons_per_layer, uint32_t num_l
         return NULL;
     }
     if (!__initialize_input_layer(layers, num_neurons_per_layer)) {
-        LOG_ERROR(strerror("Failed to initialize input layer"));
+        LOG_ERROR("Failed to initialize input layer");
         return false;
     }
     if (!__initialize_hidden_layer(layers, num_neurons_per_layer, num_layers)) {
-        LOG_ERROR(strerror("Failed to initialize hidden layer"));
+        LOG_ERROR("Failed to initialize hidden layer");
         return false;
     }
     if (!__initialize_output_layer(layers, num_neurons_per_layer, num_layers)) {
-        LOG_ERROR(strerror("Failed to initialize output layer"));
+        LOG_ERROR("Failed to initialize output layer");
         return false;
     }
     return layers;
@@ -184,7 +176,7 @@ neural_layer_t **__create_layers(uint32_t *num_neurons_per_layer, uint32_t num_l
 bool __initialize_input_layer(neural_layer_t **layers, uint32_t *num_neurons_per_layer) 
 {
     neural_layer_t *layer = NULL;
-    layer = create_input_layer(num_neurons[0]);
+    layer = create_input_layer(num_neurons_per_layer[0]);
     if (!layer) {
         LOG_ERROR(strerror(ENOMEM));
         return false;
@@ -209,7 +201,7 @@ bool __initialize_hidden_layer(neural_layer_t **layers,
     for (i = 1; i < num_layers - 1; i++) {
         layer = create_hidden_layer(num_neurons_per_layer[i]);
         if (!layer) {
-            LOG_ERROR(sterror(ENOMEM));
+            LOG_ERROR(strerror(ENOMEM));
             return false;
         }
         layers[i] = layer;
@@ -228,12 +220,13 @@ bool __initialize_hidden_layer(neural_layer_t **layers,
 bool __initialize_output_layer(neural_layer_t **layers,
         uint32_t *num_neurons_per_layer, uint32_t num_layers)
 {
+    neural_layer_t *layer = NULL;
     layer = create_output_layer(num_neurons_per_layer[num_layers - 1]);
     if (!layer) {
         LOG_ERROR(strerror(ENOMEM));
         return false;
     }
-    layers[num_layer - 1] = layer;
+    layers[num_layers - 1] = layer;
     return true;
 }
 
@@ -259,7 +252,7 @@ void __initialize_bias_and_weights(network_t *network)
 void __init_input_bias(neural_layer_t **layers)
 {
     neural_layer_t *input_layer = NULL;
-    input_layer = layer[0];
+    input_layer = layers[0];
     return;
 } 
 
@@ -292,7 +285,7 @@ void __init_hidden_bias(neural_layer_t **layers, uint32_t num_layers)
 void __init_output_bias(neural_layer_t **layers, uint32_t num_layers)
 {
     neural_layer_t *output_layer = NULL;
-    double_bias = 0;
+    double bias = 0;
     uint32_t i = 0;
     
     output_layer = layers[num_layers - 1];
@@ -308,7 +301,7 @@ void __init_output_bias(neural_layer_t **layers, uint32_t num_layers)
  */
 void __init_input_weights(neural_layer_t **layers)
 {
-    const nueral_layer_t *next_hidden_layer = NULL;
+    neural_layer_t *next_hidden_layer = NULL;
     neural_layer_t *input_layer = NULL; 
     double *weights_array = NULL;
     uint32_t num_weights = 0;
@@ -342,7 +335,7 @@ void __init_input_weights(neural_layer_t **layers)
  */
 void __init_hidden_weights(neural_layer_t **layers, uint32_t num_layers)
 {
-    const nueral_layer_t *next_layer = NULL;
+    const neural_layer_t *next_layer = NULL;
     neural_layer_t *hidden_layer = NULL; 
     double *weights_array = NULL;
     uint32_t num_weights = 0;
@@ -428,17 +421,18 @@ neural_layer_t *__get_ouput_layer(network_t *network)
     return (layer->type == LAYER_TYPE_OUTPUT) ? layer : NULL;
 }
 
-bool train(network_t *network, nn_data_batch *training_data, int epochs, uint32_t num_test_per_batch, double eta, nn_data_t *test_data)
+bool train(network_t *network, nn_data_batch_t *training_data, int epochs, uint32_t num_test_per_batch, double eta, nn_data_batch_t *test_data)
 {
     nn_data_batch_t *batch = NULL;
-    nn_data_suite *suite = NULL;
+    nn_data_suite_t *suite = NULL;
     uint32_t i = 0;
-    if (!network|| !trainging_data || !test_data) {
+    if (!network|| !training_data|| !test_data) {
         LOG_ERROR(strerror(EINVAL));
         return false;
     }
+    // shuffle training_data
     for (i = 0; i < epochs; i++) {
-        suite = divide_batch_into_suite(training_data, num_test_per_batch);
+        suite = nn_divide_batch_into_suite(training_data, num_test_per_batch);
         if (!suite) {
             LOG_ERROR("Failed to create divide the training batch");
             return false;
@@ -455,19 +449,14 @@ bool train(network_t *network, nn_data_batch *training_data, int epochs, uint32_
     return true;
 }
 
-bool backprop(network_t *network, nn_suite_t *training_suite, double learning_rate)
+bool evalute(nn_data_batch_t *testing_data)
 {
-    uint32_t serialized_expected_output_size = 0;
-    double *serizlied_expected_output = NULL;
-    uint32_t serialized_input_size = 0;
-    double *serialized_input = NULL;
+    return true;
+}
+
+bool backprop(network_t *network, nn_data_suite_t *training_suite, double learning_rate)
+{
     uint32_t i = 0;
-    neural_layer_t **delta_layers = NULL;
-    delta_layers = create_delta_layer(network->layers, network->num_layers);
-    if (!layers) {
-        LOG_ERROR("Failed to create delta layers");
-        return NULL;
-    }
     for (i = 0; i < training_suite->num_batch; i++) {
         __backprop_training_batch(network, training_suite->batches[i]);
     }
@@ -500,20 +489,20 @@ bool __backprop_training_batch(network_t *network, nn_data_batch_t *training_bat
         }
         for (j = 0; j < delta_bias_list->num_matrix; j++) {
             matrix_t *sum = NULL;
-            sum = mtx_sum(main_bias_list->matrix_list[j], delta_bias_list->matrix_list[j]);
+            sum = mtx_add(main_bias_list->matrix_list[j], delta_bias_list->matrix_list[j]);
             mtx_destroy_matrix(main_bias_list->matrix_list[j]);
             main_bias_list->matrix_list[j] = sum;
         }
         for (j = 0; j < delta_weight_list->num_matrix; j++) {
             matrix_t *sum = NULL;
-            sum = mtx_sum(main_weight_list->matrix_list[j], delta_weight_list->matrix_list[j]);
+            sum = mtx_add(main_weight_list->matrix_list[j], delta_weight_list->matrix_list[j]);
             mtx_destroy_matrix(main_weight_list->matrix_list[j]);
             main_weight_list->matrix_list[j] = sum;
         }
     }
     mtxl_destroy_list(delta_bias_list);
     mtxl_destroy_list(delta_weight_list);
-    learning_rate_per_batch = lerarning_rate / training_batch->num_data;
+    learning_rate_per_batch = learning_rate / training_batch->num_data;
     if (!__create_matrix_list_of_bias_and_weights(network,
                 &bias_list, &weight_list, true)) {
         LOG_ERROR("Failed to create the bias and weight matrix");
@@ -615,7 +604,7 @@ bool __feed_forward_for_backprop(network_t *network, nn_data_t *training_data,
             LOG_ERROR("Failed to create a bias matrix");
             goto fail;
         }
-        output_matrix = mtx_sum(weight_activation_dot_matrix, bias_matrix);
+        output_matrix = mtx_add(weight_activation_dot_matrix, bias_matrix);
         mtx_destroy_matrix(weight_activation_dot_matrix);
         mtx_destroy_matrix(bias_matrix);
         if (!output_matrix) {
@@ -666,7 +655,7 @@ bool __backprop_outputs_and_activations(network_t *network, nn_data_t *training_
         goto fail;
     }
     __create_matrix_list_of_bias_and_weights(network, &delta_bias_list, &delta_weight_list, false);
-    delta_bias_list[delta_bias_list->num_matrix - 1] = delta;
+    delta_bias_list->matrix_list[delta_bias_list->num_matrix - 1] = delta;
     // tranposed the activation vector of the last hidden layer
     transposed_activation_vector = mtx_transpose(activation_list[activation_list->num_matrix - 2]);
     if (!transposed_activation_vector) {
@@ -685,6 +674,7 @@ bool __backprop_outputs_and_activations(network_t *network, nn_data_t *training_
         matrix_t *output_vector_prime = NULL;
         matrix_t *weight_vector = NULL;
         matrix_t *transposed_weight_vector = NULL;
+        matrix_t *delta_weight_matrix = NULL;
         matrix_t *dot_matrix = NULL;
         matrix_t *temp_matrix = NULL;
         uint32_t num_rows = 0;
@@ -718,10 +708,10 @@ bool __backprop_outputs_and_activations(network_t *network, nn_data_t *training_
             mtx_destroy_matrix(dot_matrix);
             mtx_destroy_matrix(transposed_weight_vector);
             mtx_destroy_matrix(weight_vector);
-            goto loop_fail;
+            goto fail;
         }
         num_rows = mtx_get_num_rows(output_vector_prime);
-        temp_matrix = mtx_multiply_column_vectors(dot_matrix, output_vector_prime);
+        temp_matrix = mtx_multiply_column_vectors(dot_matrix, 0, output_vector_prime, 0);
         if (!temp_matrix) {
             LOG_ERROR("Failed to multiply column vectors");
             mtx_destroy_matrix(output_vector_prime);
@@ -731,7 +721,7 @@ bool __backprop_outputs_and_activations(network_t *network, nn_data_t *training_
             goto fail;
         }
         delta = temp_matrix;
-        temp_matrix = mtx_transpose(activation_list[activation_list_size - i - 1]);
+        temp_matrix = mtx_transpose(activation_list->matrix_list[activation_list->num_matrix- i - 1]);
         if (!temp_matrix) {
             LOG_ERROR("Failed to transpose a matrix");
             mtx_destroy_matrix(output_vector_prime);
@@ -755,8 +745,8 @@ bool __backprop_outputs_and_activations(network_t *network, nn_data_t *training_
         mtx_destroy_matrix(dot_matrix);
         mtx_destroy_matrix(transposed_weight_vector);
         mtx_destroy_matrix(weight_vector);
-        delta_bias_list[network->num_layers - 1 - i] = delta;
-        delta_weight_list[network->num_layers - 1 - i] = delta_weight_matrix;
+        delta_bias_list->matrix_list[network->num_layers - 1 - i] = delta;
+        delta_weight_list->matrix_list[network->num_layers - 1 - i] = delta_weight_matrix;
     }
     mtx_destroy_matrix(cost_delta_vector);
     mtx_destroy_matrix(activation_delta_vector);
@@ -792,21 +782,30 @@ bool __create_matrix_list_of_bias_and_weights(network_t *network,
     for (i = 0; i < network->num_layers - 1; i++) {
         neural_layer_t *bias_layer = NULL;
         neural_layer_t *weight_layer = NULL;
-        matrix_t *matrix_to_append = NULL;
+        matrix_t *weight_matrix_to_append = NULL;
+        matrix_t *bias_matrix_to_append = NULL;
+
         weight_layer = __get_layer_by_index(network, i);
-        bias_layer = __get_layer_by_index(network, i + 1);
-        matrix_to_append = __create_weight_matrix(weight_layer, copy_values);
-        if (!matrix_to_append) {
+        weight_matrix_to_append = __create_weight_matrix(weight_layer, copy_values);
+        if (!weight_matrix_to_append) {
             LOG_ERROR("Failed to create a weight matrix");
-            goto fail;
+            mtxl_destroy_list(weight_list);
+            mtxl_destroy_list(bias_list);
+            return false;
         }
-        mtxl_add_matrix(weight_list, matrix_to_append);
-        matrix_to_append = __create_bias_matrix(bias_layer, copy_values);
-        if (!matrix_to_append) {
+        mtx_destroy_matrix(weight_matrix_to_append);
+        mtxl_add_matrix(weight_list, weight_matrix_to_append);
+
+        bias_layer = __get_layer_by_index(network, i + 1);
+        bias_matrix_to_append = __create_bias_matrix(bias_layer, copy_values);
+        if (!bias_matrix_to_append) {
             LOG_ERROR("Failed to create a bias matrix");
-            goto fail;
+            mtxl_destroy_list(weight_list);
+            mtxl_destroy_list(bias_list);
+            return false;
         }
-        mtxl_add_matrix(bias_list, matrix_to_append);
+        mtxl_add_matrix(bias_list, bias_matrix_to_append);
+        mtx_destroy_matrix(bias_matrix_to_append);
     }
     *bias_matrix_list = bias_list;
     *weight_matrix_list = weight_list;
@@ -816,7 +815,7 @@ bool __create_matrix_list_of_bias_and_weights(network_t *network,
 matrix_t *__create_weight_matrix(neural_layer_t *layer, bool copy_values)
 {
     matrix_t *weight_matrix = NULL;
-    uint32_t = i;
+    uint32_t i = 0;
     if (!layer) {
         LOG_ERROR(strerror(EINVAL));
         return NULL;
@@ -866,7 +865,7 @@ matrix_t *__create_weight_matrix(neural_layer_t *layer, bool copy_values)
 matrix_t *__create_bias_matrix(neural_layer_t *layer, bool copy_values)
 {
     matrix_t *bias_matrix = NULL;
-    uint32_t = i;
+    uint32_t i = 0;
     if (!layer) {
         LOG_ERROR(strerror(EINVAL));
         return NULL;
@@ -922,6 +921,11 @@ void __init_output_weights(neural_layer_t **layers, uint32_t num_layers)
     return;
 }
 
+
+bool __update_bias_and_weights(network_t *network, matrix_list_t *bias_list, matrix_list_t *weight_list)
+{
+    return true;
+}
 //! Internal function to generate random double value
 /*
  * @params  double              The minimum value

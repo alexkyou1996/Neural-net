@@ -60,6 +60,26 @@ matrix_t *mtx_subtract(matrix_t *, matrix_t *);
  */
 matrix_t *mtx_transpose(matrix_t *);
 
+//! Function to multiply all the members in a matrix by a value
+/*
+ * @params  matrix_t *          The matrix
+ * @params  double              The value to multiply by
+ *
+ * @returns matrix_t *          The result matrix
+ */
+matrix_t *mtx_multiply_by_single_value(matrix_t *, double);
+
+//! Function to multiply specific columns from two matrix
+/*
+ * @params  matrix_t *          LHS Matrix
+ * @params  uint23_t            The column index to multiply
+ * @params  matrix_t *          RHS Matrix
+ * @params  uint23_t            The column index to multiply
+ *
+ * @returns matrix_t *          The resulting matrix
+ */
+matrix_t *mtx_multiply_column_vectors(matrix_t *, uint32_t, matrix_t *, uint32_t);
+
 //! Function to retrieve a value at specific index of a matrix
 /*
  * @params  matrix_t *          The matrix
