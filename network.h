@@ -1,3 +1,6 @@
+#include "nn_data.h"
+#include "neural_layer.h"
+typedef struct network_struct network_t;
 //! Function to create and initialize a neural network object
 /*
  * @params  uint32_t *          Number of neurons to allocate at each layer
@@ -34,16 +37,6 @@ neural_layer_t **create_delta_layer(neural_layer_t **, uint32_t);
  * returns              2D Matrix of neurons with activation function applied
  */
 double **sigmoid(double **, size_t, size_t);
-
-//! The tanh activation function for neuron firing
-/*
- * @param double **     2D Matrix of neurons
- * @param size_t        Matrix row size
- * @param size_t        Matrix column size
- *
- * returns              2D Matrix of neurons with activation function applied
- */
-double **tanh(double **, size_t, size_t);
 
 //! Move to the next layer of neurons
 /*

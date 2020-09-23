@@ -21,7 +21,7 @@ neural_layer_t *create_input_layer(uint32_t num_neurons)
 
     layer = calloc(sizeof(neural_layer_t), 1);
     if (!layer) {
-        log_error(strerror(ENOMEM));
+        LOG_ERROR(strerror(ENOMEM));
         return NULL;
     }
 
@@ -30,7 +30,7 @@ neural_layer_t *create_input_layer(uint32_t num_neurons)
 
     layer->input_neurons = calloc(sizeof(input_neuron_t *) * num_neurons, 1);
     if (!layer->input_neurons) {
-        log_error(strerror(ENOMEM));
+        LOG_ERROR(strerror(ENOMEM));
         destroy_neural_layer(layer);
         return NULL;
     }
@@ -38,7 +38,7 @@ neural_layer_t *create_input_layer(uint32_t num_neurons)
     for (i = 0; i < num_neurons; i++) {
         layer->input_neurons[i] = create_input_neuron(0);
         if (!layer->input_neurons[i]) {
-            log_error(strerror(ENOMEM));
+            LOG_ERROR(strerror(ENOMEM));
             destroy_neural_layer(layer);
             return NULL;
         }
@@ -59,7 +59,7 @@ bool set_inputs_in_input_layer(neural_layer_t *layer, double *inputs, uint32_t i
     uint32_t i = 0;
     if (!layer || layer->type != LAYER_TYPE_INPUT ||
             !inputs|| layer->num_neurons != input_size) {
-        log_error(strerror(EINVAL));
+        LOG_ERROR(strerror(EINVAL));
         return false;
     }
     
@@ -81,7 +81,7 @@ neural_layer_t *create_hidden_layer(uint32_t num_neurons)
 
     layer = calloc(sizeof(neural_layer_t), 1);
     if (!layer) {
-        log_error(strerror(ENOMEM));
+        LOG_ERROR(strerror(ENOMEM));
         return NULL;
     }
 
@@ -90,7 +90,7 @@ neural_layer_t *create_hidden_layer(uint32_t num_neurons)
 
     layer->hidden_neurons = calloc(sizeof(hidden_neuron_t *) * num_neurons, 1);
     if (!layer->hidden_neurons) {
-        log_error(strerror(ENOMEM));
+        LOG_ERROR(strerror(ENOMEM));
         destroy_neural_layer(layer);
         return NULL;
     }
@@ -98,7 +98,7 @@ neural_layer_t *create_hidden_layer(uint32_t num_neurons)
     for (i = 0; i < num_neurons; i++) {
         layer->hidden_neurons[i] = create_hidden_neuron(0);
         if (!layer->hidden_neurons[i]) {
-            log_error(strerror(ENOMEM));
+            LOG_ERROR(strerror(ENOMEM));
             destroy_neural_layer(layer);
             return NULL;
         }
@@ -118,7 +118,7 @@ neural_layer_t *create_output_layer(uint32_t num_neurons)
 
     layer = calloc(sizeof(neural_layer_t), 1);
     if (!layer) {
-        log_error(strerror(ENOMEM));
+        LOG_ERROR(strerror(ENOMEM));
         return NULL;
     }
 
@@ -127,7 +127,7 @@ neural_layer_t *create_output_layer(uint32_t num_neurons)
 
     layer->output_neurons = calloc(sizeof(output_neuron_t *) * num_neurons, 1);
     if (!layer->output_neurons) {
-        log_error(strerror(ENOMEM));
+        LOG_ERROR(strerror(ENOMEM));
         destroy_neural_layer(layer);
         return NULL;
     }
@@ -135,7 +135,7 @@ neural_layer_t *create_output_layer(uint32_t num_neurons)
     for (i = 0; i < num_neurons; i++) {
         layer->output_neurons[i] = create_output_neuron();
         if (!layer->output_neurons[i]) {
-            log_error(strerror(ENOMEM));
+            LOG_ERROR(strerror(ENOMEM));
             destroy_neural_layer(layer);
             return NULL;
         }
@@ -162,7 +162,7 @@ void destroy_neural_layer(void *layer)
             break;
         case LAYER_TYPE_INVALID:
         default:
-            log_error("Invalid type encountered: [%d]", type);
+            LOG_ERROR("Invalid type encountered: [%d]", type);
             return;
     }
     free(layer);

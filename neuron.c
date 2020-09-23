@@ -12,13 +12,13 @@ input_neuron_t *create_input_neuron(uint32_t num_weights)
     input_neuron_t *neuron = NULL;
     neuron = calloc(sizeof(input_neuron_t), 1);
     if (!neuron) {
-        log_error(strerror(ENOMEM));
+        LOG_ERROR(strerror(ENOMEM));
         return NULL;
     }
     if (num_weights) {
         neuron->weights = calloc(sizeof(double), num_weights);
         if (!neuron->weights) {
-            log_error(strerror(ENOMEM));
+            LOG_ERROR(strerror(ENOMEM));
             destroy_input_neuron(neuron);
             return NULL;
         }
@@ -38,13 +38,13 @@ hidden_neuron_t *create_hidden_neuron(uint32_t num_weights)
     input_neuron_t *neuron = NULL;
     neuron = calloc(sizeof(hidden_neuron_t), 1);
     if (!neuron) {
-        log_error(strerror(ENOMEM));
+        LOG_ERROR(strerror(ENOMEM));
         return NULL;
     }
     if (num_weights) {
         neuron->weights = calloc(sizeof(double), num_weights);
         if (!neuron->weights) {
-            log_error(strerror(ENOMEM));
+            LOG_ERROR(strerror(ENOMEM));
             destroy_hidden_neuron(neuron);
             return NULL;
         }

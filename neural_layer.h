@@ -6,7 +6,7 @@ typedef struct  neural_layer_struct {
         input_neuron_t **input_neurons;
         hidden_neuron_t **hidden_neurons;
         output_neuron_t **output_neurons;
-    }
+    };
     //! type of layer
     int type;
     //! number of neurons in this layer
