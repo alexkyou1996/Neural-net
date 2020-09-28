@@ -77,5 +77,5 @@ double ****back_prop(double **, double **);
  *
  * @returns bool                Whether success
  */
-bool evalute(nn_data_batch_t *);
+bool evaluate(nn_data_batch_t *);
 #endif

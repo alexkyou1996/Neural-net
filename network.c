@@ -61,6 +61,9 @@ matrix_t *__create_weight_matrix(neural_layer_t *, bool);
 matrix_t *__create_bias_matrix(neural_layer_t *, bool);
 bool backprop(network_t *, nn_data_suite_t *, double);
 bool __backprop_training_batch(network_t *, nn_data_batch_t *, double);
+matrix_t *apply_sigmoid(matrix_t *);
+matrix_t *apply_sigmoid_prime(matrix_t *);
+matrix_t *get_cost_derivative(matrix_t *, uint32_t);
 
 //! Structure to describe the neural network object
 typedef struct network_struct {
@@ -449,7 +452,7 @@ bool train(network_t *network, nn_data_batch_t *training_data, int epochs, uint3
     return true;
 }
 
-bool evalute(nn_data_batch_t *testing_data)
+bool evaluate(nn_data_batch_t *testing_data)
 {
     return true;
 }
@@ -458,7 +461,7 @@ bool backprop(network_t *network, nn_data_suite_t *training_suite, double learni
 {
     uint32_t i = 0;
     for (i = 0; i < training_suite->num_batch; i++) {
-        __backprop_training_batch(network, training_suite->batches[i]);
+        __backprop_training_batch(network, &training_suite->batches[i], learning_rate);
     }
 }
 
@@ -481,7 +484,7 @@ bool __backprop_training_batch(network_t *network, nn_data_batch_t *training_bat
     }
     for (i = 0; i < training_batch->num_data; i++) {
         if (!__backprop_training_data(network,
-                    training_batch->data[i], &delta_bias_list, &delta_weight_list)) {
+                    &training_batch->data[i], &delta_bias_list, &delta_weight_list)) {
             LOG_ERROR("Failed backpropagation");
             mtxl_destroy_list(main_bias_list);
             mtxl_destroy_list(main_weight_list);
@@ -612,8 +615,8 @@ bool __feed_forward_for_backprop(network_t *network, nn_data_t *training_data,
             goto fail;
         }
         mtxl_add_matrix(output_matrix_list, output_matrix);
-        mtxl_add_matrix(actiavtion_matrix_list, activation_matrix);
-        activation_matrix = apply_sigmoid_function(output_matrix);
+        mtxl_add_matrix(activation_matrix_list, activation_matrix);
+        activation_matrix = apply_sigmoid(output_matrix);
     }
     mtxl_add_matrix(activation_matrix_list, activation_matrix);
     *activations = activation_matrix_list;
@@ -643,7 +646,7 @@ bool __backprop_outputs_and_activations(network_t *network, nn_data_t *training_
         LOG_ERROR("Failed to get the cost derivative of the last activation vector");
         goto fail;
     }
-    activation_delta_vector = apply_sigmoid_prime(output_list[output_list->num_matrix - 1]);
+    activation_delta_vector = apply_sigmoid_prime(output_list->matrix_list[output_list->num_matrix - 1]);
     if (!activation_delta_vector) {
         LOG_ERROR("Failed to apply sigmoid derivative to the last output vector");
         mtx_destroy_matrix(cost_delta_vector);
@@ -657,13 +660,13 @@ bool __backprop_outputs_and_activations(network_t *network, nn_data_t *training_
     __create_matrix_list_of_bias_and_weights(network, &delta_bias_list, &delta_weight_list, false);
     delta_bias_list->matrix_list[delta_bias_list->num_matrix - 1] = delta;
     // tranposed the activation vector of the last hidden layer
-    transposed_activation_vector = mtx_transpose(activation_list[activation_list->num_matrix - 2]);
+    transposed_activation_vector = mtx_transpose(activation_list->matrix_list[activation_list->num_matrix - 2]);
     if (!transposed_activation_vector) {
         LOG_ERROR("Failed to transpose a matrix");
         goto fail;
     }
-    delta_weight_list[delta_weight_list->num_matrix - 1] = mtx_dot(delta, transposed_activation_vector);
-    if (!delta_weight_list[delta_weight_list->num_matrix - 1]) {
+    delta_weight_list->matrix_list[delta_weight_list->num_matrix - 1] = mtx_dot(delta, transposed_activation_vector);
+    if (!delta_weight_list->matrix_list[delta_weight_list->num_matrix - 1]) {
         LOG_ERROR("Failed to multiply vectors");
         goto fail;
     }
@@ -679,7 +682,7 @@ bool __backprop_outputs_and_activations(network_t *network, nn_data_t *training_
         matrix_t *temp_matrix = NULL;
         uint32_t num_rows = 0;
         // start from the last hidden layer
-        layer = __get_layer_by_index(network->num_layers - i);
+        layer = __get_layer_by_index(network, network->num_layers - i);
         // create a vector matrix from the weights
         weight_vector = __create_weight_matrix(layer, true);
         if (!weight_vector) {
@@ -701,8 +704,8 @@ bool __backprop_outputs_and_activations(network_t *network, nn_data_t *training_
         }
         // propagate backwards from the last hidden layer
         // output_list_size - 1 to get last, -2 to get 2nd last which is the last of the hidden layers
-        matrix_t *output_vector = output_list[output_list_size - i];
-        output_vector_prime = get_sigmoid_derivative(output_vector);
+        matrix_t *output_vector = output_list->matrix_list[output_list->num_matrix - i];
+        output_vector_prime = apply_sigmoid_prime(output_vector);
         if (!output_vector_prime) {
             LOG_ERROR("Failed to apply sigmoid derivative to the output vector");
             mtx_destroy_matrix(dot_matrix);
