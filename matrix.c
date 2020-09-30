@@ -213,6 +213,70 @@ matrix_t *mtx_transpose(matrix_t *matrix)
     return transposed_matrix;
 }
 
+//! Function to multiply all the members in a matrix by a value
+/*
+ * @params  matrix_t *          The matrix
+ * @params  double              The value to multiply by
+ *
+ * @returns matrix_t *          The result matrix
+ */
+matrix_t *mtx_multiply_by_single_value(matrix_t *matrix, double value)
+{
+    matrix_t *output_matrix = NULL;
+    uint32_t i = 0;
+    uint32_t j = 0;
+
+    if (!matrix) {
+        LOG_ERROR(strerror(EINVAL));
+        return NULL;
+    }
+    output_matrix = mtx_create_matrix(matrix->num_rows, matrix->num_columns);
+    if (!output_matrix) {
+        LOG_ERROR(strerror(ENOMEM));
+        return NULL;
+    }
+    for (i = 0; i < matrix->num_rows; i++) {
+        for (j = 0; j < matrix->num_columns; j++) {
+            output_matrix->cells[i][j] = matrix->cells[i][j] * value;
+        }
+    }
+    return output_matrix;
+}
+
+//! Function to multiply specific columns from two matrix
+/*
+ * @params  matrix_t *          LHS Matrix
+ * @params  uint23_t            The column index to multiply
+ * @params  matrix_t *          RHS Matrix
+ * @params  uint23_t            The column index to multiply
+ *
+ * @returns matrix_t *          The resulting matrix
+ */
+matrix_t *mtx_multiply_column_vectors(matrix_t *matrix_lhs, uint32_t column_index_lhs,
+        matrix_t *matrix_rhs, uint32_t column_index_rhs)
+{
+    matrix_t *output_matrix = NULL;
+    uint32_t i = 0;
+
+    if (!matrix_lhs || !matrix_rhs || 
+            column_index_lhs >= matrix_lhs->num_columns ||
+            column_index_rhs >= matrix_rhs->num_columns ||
+            matrix_lhs->num_rows != matrix_rhs->num_rows) {
+        LOG_ERROR(strerror(EINVAL));
+        return NULL;
+    }
+    output_matrix = mtx_create_matrix(matrix_lhs->num_rows, 1);
+    if (!output_matrix) {
+        LOG_ERROR(strerror(ENOMEM));
+        return NULL;
+    }
+    for (i = 0; i < output_matrix->num_rows; i++) {
+        output_matrix->cells[i][0] = matrix_lhs->cells[i][column_index_lhs] *
+            matrix_rhs->cells[i][column_index_rhs];
+    }
+    return output_matrix;
+}
+
 //! Function to retrieve a value at specific index of a matrix
 /*
  * @params  matrix_t *          The matrix

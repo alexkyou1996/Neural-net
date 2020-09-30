@@ -4,6 +4,7 @@
 #include <string.h>
 #include <errno.h>
 #include <time.h>
+#include <math.h>
 
 #include "logging.h"
 #include "matrix_list.h"
@@ -53,6 +54,7 @@ neural_layer_t *__get_ouput_layer(network_t *);
 neural_layer_t *__get_layer_by_index(network_t *, uint32_t);
 bool __create_matrix_list_of_bias_and_weights(network_t *, matrix_list_t **, matrix_list_t **, bool);
 bool __backprop_training_data(network_t *, nn_data_t *, matrix_list_t **, matrix_list_t **);
+// TODO: implement
 bool __update_bias_and_weights(network_t *, matrix_list_t *, matrix_list_t *);
 bool __feed_forward_for_backprop(network_t *, nn_data_t *, matrix_list_t **, matrix_list_t **);
 bool __backprop_outputs_and_activations(network_t *, nn_data_t *,
@@ -61,9 +63,10 @@ matrix_t *__create_weight_matrix(neural_layer_t *, bool);
 matrix_t *__create_bias_matrix(neural_layer_t *, bool);
 bool backprop(network_t *, nn_data_suite_t *, double);
 bool __backprop_training_batch(network_t *, nn_data_batch_t *, double);
-matrix_t *apply_sigmoid(matrix_t *);
-matrix_t *apply_sigmoid_prime(matrix_t *);
-matrix_t *get_cost_derivative(matrix_t *, uint32_t);
+matrix_t *__create_label_matrix(uint32_t, uint32_t);
+matrix_t *__apply_sigmoid(matrix_t *);
+matrix_t *__apply_sigmoid_prime(matrix_t *);
+matrix_t *__apply_cost_function(matrix_t *, uint32_t);
 
 //! Structure to describe the neural network object
 typedef struct network_struct {
@@ -463,6 +466,7 @@ bool backprop(network_t *network, nn_data_suite_t *training_suite, double learni
     for (i = 0; i < training_suite->num_batch; i++) {
         __backprop_training_batch(network, &training_suite->batches[i], learning_rate);
     }
+    return true;
 }
 
 bool __backprop_training_batch(network_t *network, nn_data_batch_t *training_batch, double learning_rate)
@@ -616,7 +620,7 @@ bool __feed_forward_for_backprop(network_t *network, nn_data_t *training_data,
         }
         mtxl_add_matrix(output_matrix_list, output_matrix);
         mtxl_add_matrix(activation_matrix_list, activation_matrix);
-        activation_matrix = apply_sigmoid(output_matrix);
+        activation_matrix = __apply_sigmoid(output_matrix);
     }
     mtxl_add_matrix(activation_matrix_list, activation_matrix);
     *activations = activation_matrix_list;
@@ -641,12 +645,12 @@ bool __backprop_outputs_and_activations(network_t *network, nn_data_t *training_
     matrix_t *transposed_activation_vector = NULL;
     uint32_t i = 0;
     cost_delta_vector = 
-        get_cost_derivative(activation_list->matrix_list[activation_list->num_matrix - 1], training_data->label);
+        __apply_cost_function(activation_list->matrix_list[activation_list->num_matrix - 1], training_data->label);
     if (!cost_delta_vector) {
         LOG_ERROR("Failed to get the cost derivative of the last activation vector");
         goto fail;
     }
-    activation_delta_vector = apply_sigmoid_prime(output_list->matrix_list[output_list->num_matrix - 1]);
+    activation_delta_vector = __apply_sigmoid_prime(output_list->matrix_list[output_list->num_matrix - 1]);
     if (!activation_delta_vector) {
         LOG_ERROR("Failed to apply sigmoid derivative to the last output vector");
         mtx_destroy_matrix(cost_delta_vector);
@@ -705,7 +709,7 @@ bool __backprop_outputs_and_activations(network_t *network, nn_data_t *training_
         // propagate backwards from the last hidden layer
         // output_list_size - 1 to get last, -2 to get 2nd last which is the last of the hidden layers
         matrix_t *output_vector = output_list->matrix_list[output_list->num_matrix - i];
-        output_vector_prime = apply_sigmoid_prime(output_vector);
+        output_vector_prime = __apply_sigmoid_prime(output_vector);
         if (!output_vector_prime) {
             LOG_ERROR("Failed to apply sigmoid derivative to the output vector");
             mtx_destroy_matrix(dot_matrix);
@@ -941,4 +945,104 @@ double __gen_random_double(double min, double max)
     double range = max - min;
     double div = RAND_MAX / range;
     return min + (rand() / div);
+}
+
+
+matrix_t *__apply_sigmoid(matrix_t *matrix)
+{
+    matrix_t *output_matrix = NULL;
+    uint32_t num_columns = 0;
+    uint32_t num_rows = 0;
+    double value = 0;
+    uint32_t i = 0;
+    uint32_t j = 0;
+
+    num_rows = mtx_get_num_rows(matrix);
+    num_columns = mtx_get_num_columns(matrix);
+    output_matrix = mtx_create_matrix(num_rows, num_columns);
+    if (!output_matrix) {
+        LOG_ERROR("Failed to create matrix");
+        return NULL;
+    }
+    for (i = 0; i < num_rows; i++) {
+        for (j = 0; j < num_columns; j++) {
+            mtx_at(matrix, i, j, &value);
+            value = 1.0 / (1.0 + exp(-value));
+            mtx_set_cell(output_matrix, i, j, value);
+        }
+    }
+    return output_matrix;
+}
+
+matrix_t *__apply_sigmoid_prime(matrix_t *matrix)
+{
+    matrix_t *sigmoid_matrix = NULL;
+    matrix_t *output_matrix = NULL;
+    uint32_t num_columns = 0;
+    uint32_t num_rows = 0;
+    double value = 0;
+    uint32_t i = 0;
+    uint32_t j = 0;
+
+    num_rows = mtx_get_num_rows(matrix);
+    num_columns = mtx_get_num_columns(matrix);
+    sigmoid_matrix = __apply_sigmoid(matrix);
+    if (!sigmoid_matrix) {
+        LOG_ERROR("Failed to apply sigmoid prime");
+        return NULL;
+    }
+    output_matrix = mtx_create_matrix(num_rows, num_columns);
+    if (!output_matrix) {
+        LOG_ERROR("Failed to create matrix");
+        return NULL;
+    }
+    for (i = 0; i < num_rows; i++) {
+        for (j = 0; j < num_columns; j++) {
+            mtx_at(sigmoid_matrix, i, j, &value);
+            value = (1 - value) * value;
+            mtx_set_cell(output_matrix, i, j, value);
+        }
+    }
+    mtx_destroy_matrix(sigmoid_matrix);
+    return output_matrix;
+}
+
+matrix_t *__create_label_matrix(uint32_t label, uint32_t num_rows)
+{
+    matrix_t *label_matrix = NULL;
+    uint32_t i = 0;
+    uint32_t j = 0;
+
+    label_matrix = mtx_create_matrix(num_rows, 1);
+    if (!label_matrix) {
+        LOG_ERROR("Failed to create matrix");
+        return NULL;
+    }
+    mtx_set_cell(label_matrix, label, 0, 1.0);
+}
+
+matrix_t *__apply_cost_function(matrix_t *matrix, uint32_t label)
+{
+    matrix_t *output_matrix = NULL;
+    matrix_t *label_matrix = NULL;
+    uint32_t num_rows = 0;
+
+    if (mtx_get_num_columns(matrix) != 1) {
+        LOG_ERROR(strerror(EINVAL));
+        return NULL;
+    }
+    num_rows = mtx_get_num_rows(matrix);
+    label_matrix = __create_label_matrix(label, num_rows);
+    if (!label_matrix) {
+        LOG_ERROR("Failed to create label matrix");
+        return NULL;
+    }
+    output_matrix = mtx_subtract(matrix, label_matrix);
+    if (!output_matrix) {
+        LOG_ERROR("Failed to subtract matrix");
+        mtx_destroy_matrix(label_matrix);
+        return NULL;
+    }
+    mtx_destroy_matrix(label_matrix);
+    return output_matrix;
 }

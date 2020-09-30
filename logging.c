@@ -10,7 +10,7 @@
 #define BUFFER_SIZE 1024
 
 //! Function to log errors
-int LOG_ERROR(const char *, const char *, int, char *, ...);
+int log_error(const char *, const char *, int, char *, ...);
 //! Function to log informational stuff
 int log_info(const char *, const char *, int, char *, ...);
 bool verbose = false;
@@ -38,7 +38,7 @@ void set_verbose()
  *
  * @returns int                 Number of characters logged. -1 on error
  */
-int LOG_ERROR(const char *file, const char * function, int line, char *format, ...)
+int log_error(const char *file, const char * function, int line, char *format, ...)
 {
     char buffer[BUFFER_SIZE] = {0};
     size_t log_length = 0;
